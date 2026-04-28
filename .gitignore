@@ -1,0 +1,84 @@
+# Environment configuration
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Logs
+logs/
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.bak
+
+# Secrets (gitignored, never commit)
+secrets/
+*.key
+*.pem
+*.crt
+
+# Local cluster configs
+configs/hub/env.sh
+configs/edge/env.sh
+configs/**/*.real.yaml
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# OpenShift/Kubernetes local files
+kubeconfig
+.kube/
+
+# Misc
+.DS_Store
+Thumbs.db
