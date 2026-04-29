@@ -1,0 +1,17 @@
+name: Deploy Kind cluster
+description: Install Kind and create a local Kubernetes cluster
+
+runs:
+  using: composite
+  steps:
+    - name: Install Kind
+      run: go install sigs.k8s.io/kind@v0.30.0
+      shell: bash
+
+    - name: Create Kind cluster with local registry
+      run: bash ./scripts/ci/kind-with-registry.sh
+      shell: bash
+
+    - name: Print cluster info
+      run: kubectl cluster-info
+      shell: bash
