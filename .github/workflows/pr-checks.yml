@@ -30,6 +30,12 @@ jobs:
       - name: Deploy Kind cluster
         uses: ./.github/actions/kind
 
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Run integration tests
+        run: make integration-tests
+
       - name: Inspect Cluster - Hub
         if: always()
         uses: ./.github/actions/inspect-ns

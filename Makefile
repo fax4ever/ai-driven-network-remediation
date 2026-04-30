@@ -41,3 +41,10 @@ helm-install: namespace helm-depend
 .PHONY: helm-uninstall
 helm-uninstall:
 	helm uninstall hub --namespace $(NAMESPACE)
+
+.PHONY: integration-tests
+integration-tests:
+	kubectl port-forward -n $(NAMESPACE) svc/hub-chatbot-service 8080:80 & \
+	PF_PID=$$!; \
+	trap "kill $$PF_PID" EXIT; \
+	sleep 2 && cd hub/integration-tests && uv run pytest

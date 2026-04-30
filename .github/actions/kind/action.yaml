@@ -34,3 +34,4 @@ runs:
     - name: Helm Install
       run: make helm-install REGISTRY=localhost:5001
       shell: bash
+
