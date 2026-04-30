@@ -23,3 +23,7 @@ runs:
     - name: Push local images to the local registry
       run: make push-all-images REGISTRY=localhost:5001 PUSH_EXTRA_ARGS="--tls-verify=false"
       shell: bash
+
+    - name: Helm Install
+      run: make helm-install REGISTRY=localhost:5001
+      shell: bash

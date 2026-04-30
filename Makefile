@@ -35,7 +35,8 @@ helm-install: namespace helm-depend
 		--namespace $(NAMESPACE) \
 		--set image.registry=$(REGISTRY) \
 		--set image.chatbotService=noc-chatbot-service \
-		--set image.tag=$(VERSION)
+		--set image.tag=$(VERSION) \
+		--wait --timeout 30m
 
 .PHONY: helm-uninstall
 helm-uninstall:
