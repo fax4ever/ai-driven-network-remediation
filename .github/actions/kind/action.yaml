@@ -20,7 +20,7 @@ runs:
       shell: bash
 
     - name: Print cluster info
-      run: kubectl cluster-info
+      run: oc cluster-info
       shell: bash
 
     - name: Build local images

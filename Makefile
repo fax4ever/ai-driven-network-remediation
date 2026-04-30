@@ -22,8 +22,8 @@ reinstall-all:
 
 .PHONY: namespace
 namespace:
-	@kubectl create namespace $(NAMESPACE) 2>/dev/null ||:
-	@kubectl config set-context --current --namespace=$(NAMESPACE) 2>/dev/null ||:
+	@oc create namespace $(NAMESPACE) 2>/dev/null ||:
+	@oc config set-context --current --namespace=$(NAMESPACE) 2>/dev/null ||:
 
 .PHONY: helm-depend
 helm-depend:
@@ -44,7 +44,7 @@ helm-uninstall:
 
 .PHONY: integration-tests
 integration-tests:
-	kubectl port-forward -n $(NAMESPACE) svc/hub-chatbot-service 8080:80 & \
+	oc port-forward -n $(NAMESPACE) svc/hub-chatbot-service 8080:80 & \
 	PF_PID=$$!; \
 	trap "kill $$PF_PID" EXIT; \
 	sleep 2 && cd hub/integration-tests && uv run pytest

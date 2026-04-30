@@ -37,7 +37,7 @@ if [ "$(docker inspect -f='{{json .NetworkSettings.Networks.kind}}' "${reg_name}
 fi
 
 # 5. Advertise the registry inside the cluster (KEP-1755)
-cat <<EOF | kubectl apply -f -
+cat <<EOF | oc apply -f -
 apiVersion: v1
 kind: ConfigMap
 metadata:
