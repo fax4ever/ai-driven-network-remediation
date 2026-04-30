@@ -15,3 +15,11 @@ runs:
     - name: Print cluster info
       run: kubectl cluster-info
       shell: bash
+
+    - name: Build local images
+      run: make build-all-images REGISTRY=localhost:5001
+      shell: bash
+
+    - name: Push local images to the local registry
+      run: make push-all-images REGISTRY=localhost:5001 PUSH_EXTRA_ARGS="--tls-verify=false"
+      shell: bash

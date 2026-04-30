@@ -4,6 +4,7 @@ REGISTRY       ?= quay.io/ecosystem-appeng
 VERSION        ?= 0.1.0
 ARCH           ?= linux/amd64
 NAMESPACE      ?= hub
+PUSH_EXTRA_ARGS ?=
 
 CHATBOT_IMG := $(REGISTRY)/noc-chatbot-service:$(VERSION)
 
@@ -13,7 +14,7 @@ build-all-images:
 
 .PHONY: push-all-images
 push-all-images:
-	$(CONTAINER_TOOL) push $(CHATBOT_IMG)
+	$(CONTAINER_TOOL) push $(CHATBOT_IMG) $(PUSH_EXTRA_ARGS)
 
 .PHONY: reinstall-all
 reinstall-all:
