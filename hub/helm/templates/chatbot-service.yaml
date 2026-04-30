@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "hub.fullname" . }}-chatbot-service
+  labels:
+    {{- include "hub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: chatbot-service
+spec:
+  replicas: {{ .Values.chatbotService.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "hub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: chatbot-service
+  template:
+    metadata:
+      labels:
+        {{- include "hub.labels" . | nindent 8 }}
+        app.kubernetes.io/component: chatbot-service
+    spec:
+      containers:
+        - name: chatbot-service
+          image: "{{ .Values.image.registry }}/{{ .Values.image.chatbotService }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          livenessProbe:
+            {{- toYaml .Values.chatbotService.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.chatbotService.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.chatbotService.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "hub.fullname" . }}-chatbot-service
+  labels:
+    {{- include "hub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: chatbot-service
+spec:
+  type: {{ .Values.chatbotService.service.type }}
+  ports:
+    - port: {{ .Values.chatbotService.service.port }}
+      targetPort: {{ .Values.chatbotService.service.targetPort }}
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "hub.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: chatbot-service
