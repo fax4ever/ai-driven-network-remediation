@@ -4,6 +4,13 @@ description: Install Kind and create a local Kubernetes cluster
 runs:
   using: composite
   steps:
+    - name: Install oc client
+      run: |
+        curl -sSLo oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable/openshift-client-linux.tar.gz
+        tar -xf oc.tar.gz -C /usr/local/bin oc
+        oc version --client
+      shell: bash
+
     - name: Install Kind
       run: go install sigs.k8s.io/kind@v0.30.0
       shell: bash
