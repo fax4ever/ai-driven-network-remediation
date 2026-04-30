@@ -29,3 +29,10 @@ jobs:
 
       - name: Deploy Kind cluster
         uses: ./.github/actions/kind
+
+      - name: Inspect Cluster - Hub
+        if: always()
+        uses: ./.github/actions/inspect-ns
+        with:
+          artifactPrefix: hub
+          namespace: hub
