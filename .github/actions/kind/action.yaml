@@ -1,0 +1,37 @@
+name: Deploy Kind cluster
+description: Install Kind and create a local Kubernetes cluster
+
+runs:
+  using: composite
+  steps:
+    - name: Install oc client
+      run: |
+        curl -sSLo oc.tar.gz https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/stable/openshift-client-linux.tar.gz
+        tar -xf oc.tar.gz -C /usr/local/bin oc
+        oc version --client
+      shell: bash
+
+    - name: Install Kind
+      run: go install sigs.k8s.io/kind@v0.30.0
+      shell: bash
+
+    - name: Create Kind cluster with local registry
+      run: bash ./scripts/ci/kind-with-registry.sh
+      shell: bash
+
+    - name: Print cluster info
+      run: oc cluster-info
+      shell: bash
+
+    - name: Build local images
+      run: make build-all-images REGISTRY=localhost:5001
+      shell: bash
+
+    - name: Push local images to the local registry
+      run: make push-all-images REGISTRY=localhost:5001 PUSH_EXTRA_ARGS="--tls-verify=false"
+      shell: bash
+
+    - name: Helm Install
+      run: make helm-install REGISTRY=localhost:5001
+      shell: bash
+

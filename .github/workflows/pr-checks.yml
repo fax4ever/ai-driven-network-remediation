@@ -1,0 +1,44 @@
+name: Pull Request Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'  # Run daily at 2 AM UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-tests:
+    name: Run e2e tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Print run context
+        run: |
+          echo "workflow : ${{ github.workflow }}"
+          echo "ref      : ${{ github.ref }}"
+          echo "pr sha   : ${{ github.event.pull_request.head.sha }}"
+
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Deploy Kind cluster
+        uses: ./.github/actions/kind
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Run integration tests
+        run: make integration-tests
+
+      - name: Inspect Cluster - Hub
+        if: always()
+        uses: ./.github/actions/inspect-ns
+        with:
+          artifactPrefix: hub
+          namespace: hub

@@ -22,7 +22,7 @@ keywords = [
     "incident-response"
 ]
 
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 
 dependencies = [
     # AI & LLM Framework
@@ -113,7 +113,7 @@ packages = ["services"]
 
 [tool.black]
 line-length = 120
-target-version = ['py312']
+target-version = ['py313']
 include = '\.pyi?$'
 extend-exclude = '''
 /(
@@ -130,11 +130,11 @@ extend-exclude = '''
 
 [tool.ruff]
 line-length = 120
-target-version = "py312"
+target-version = "py313"
 exclude = [".git", "__pycache__", ".venv"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.13"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = false

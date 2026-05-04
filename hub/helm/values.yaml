@@ -1,0 +1,32 @@
+# https://kubernetes.io/docs/concepts/containers/images/
+image:
+  # registry: quay.io/rh-ai-quickstart  # production registry
+  registry: quay.io/ecosystem-appeng
+  chatbotService: hub-chatbot-service
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "0.0.1"
+
+chatbotService:
+  replicaCount: 1
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+
+  resources: {}
+
+  livenessProbe:
+    httpGet:
+      path: /api/hello
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+  readinessProbe:
+    httpGet:
+      path: /api/hello
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 10
