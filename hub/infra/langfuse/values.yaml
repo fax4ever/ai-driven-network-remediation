@@ -1,0 +1,127 @@
+# Langfuse Helm chart values
+# Chart version: 1.5.22 (image version derived from chart appVersion)
+# Prerequisites: create the "langfuse-secrets" Kubernetes secret before installing.
+# See docs/langfuse-deploy.md for details.
+
+langfuse:
+  features:
+    telemetryEnabled: false
+    signUpDisabled: false
+
+  salt:
+    secretKeyRef:
+      name: langfuse-secrets
+      key: salt
+
+  encryptionKey:
+    secretKeyRef:
+      name: langfuse-secrets
+      key: encryption-key
+
+  nextauth:
+    # Dev-only: update to your Ingress/Route URL for non-local deployments
+    url: "http://localhost:3000"
+    secret:
+      secretKeyRef:
+        name: langfuse-secrets
+        key: nextauth-secret
+
+  extraInitContainers:
+    - name: wait-for-pg
+      image: busybox:1.37
+      command:
+        - sh
+        - -c
+        - |
+          until nc -z langfuse-postgresql 5432; do
+            echo "waiting for PostgreSQL..."
+            sleep 2
+          done
+
+  additionalEnv:
+    - name: LANGFUSE_INIT_ORG_ID
+      value: "ai-driven-network"
+    - name: LANGFUSE_INIT_ORG_NAME
+      value: "AI Driven Network Remediation"
+    - name: LANGFUSE_INIT_PROJECT_NAME
+      value: "default"
+    - name: LANGFUSE_INIT_USER_EMAIL
+      value: "admin@local.dev"
+    - name: LANGFUSE_INIT_USER_NAME
+      value: "Admin"
+    - name: LANGFUSE_INIT_USER_PASSWORD
+      value: "changeme"
+    - name: LANGFUSE_INIT_PROJECT_PUBLIC_KEY
+      valueFrom:
+        secretKeyRef:
+          name: langfuse-secrets
+          key: langfuse-public-key
+    - name: LANGFUSE_INIT_PROJECT_SECRET_KEY
+      valueFrom:
+        secretKeyRef:
+          name: langfuse-secrets
+          key: langfuse-secret-key
+
+  web:
+    service:
+      type: ClusterIP
+      port: 3000
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1000m
+        memory: 1Gi
+
+  worker:
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+# S3-compatible storage via chart-bundled MinIO
+s3:
+  deploy: true
+  bucket: langfuse
+  region: "auto"
+  forcePathStyle: true
+  accessKeyId:
+    secretKeyRef:
+      name: langfuse-secrets
+      key: minio-access-key
+  secretAccessKey:
+    secretKeyRef:
+      name: langfuse-secrets
+      key: minio-secret-key
+  defaultBuckets: langfuse
+  auth:
+    existingSecret: langfuse-secrets
+    rootUserSecretKey: minio-access-key
+    rootPasswordSecretKey: minio-secret-key
+
+# Single-node ClickHouse (no ZooKeeper, no replication)
+clickhouse:
+  clusterEnabled: false
+  replicaCount: 1
+  resourcesPreset: small
+  zookeeper:
+    enabled: false
+  auth:
+    existingSecret: langfuse-secrets
+    existingSecretKey: clickhouse-password
+
+postgresql:
+  auth:
+    existingSecret: langfuse-secrets
+    secretKeys:
+      userPasswordKey: postgres-password
+      adminPasswordKey: postgres-password
+
+redis:
+  auth:
+    existingSecret: langfuse-secrets
+    existingSecretPasswordKey: redis-password
