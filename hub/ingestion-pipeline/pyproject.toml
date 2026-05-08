@@ -9,6 +9,7 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115",
     "llama-stack-client==0.6.0",
+    "minio>=7.2.20",
     "uvicorn>=0.32",
 ]
 
