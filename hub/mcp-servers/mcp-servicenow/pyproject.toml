@@ -1,13 +1,17 @@
 [project]
 name = "mcp-servicenow"
 version = "0.1.0"
-description = "Add your description here"
+description = "MCP server wrapping the ServiceNow REST API for the AI remediation agent"
 readme = "README.md"
 authors = [
     { name = "rh-ai-quickstart" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "mcp[cli]>=1.23",
+    "httpx>=0.28",
+    "uvicorn>=0.34",
+]
 
 [project.scripts]
 mcp-servicenow = "mcp_servicenow:main"
