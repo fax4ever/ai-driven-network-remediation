@@ -1,0 +1,162 @@
+{{- $kafkaName := printf "%s-kafka" (include "hub.fullname" .) }}
+{{- $headlessServiceName := printf "%s-headless" $kafkaName }}
+{{- $kafkaDnsName := printf "%s.%s.svc.%s" $kafkaName .Release.Namespace .Values.kafka.service.clusterDomain }}
+{{- $controllerDnsName := printf "%s-0.%s.%s.svc.%s" $kafkaName $headlessServiceName .Release.Namespace .Values.kafka.service.clusterDomain }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $kafkaName }}
+  labels:
+    {{- include "hub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kafka
+spec:
+  type: {{ .Values.kafka.service.type }}
+  ports:
+    - name: kafka
+      port: {{ .Values.kafka.service.port }}
+      targetPort: kafka
+      protocol: TCP
+  selector:
+    {{- include "hub.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: kafka
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $headlessServiceName }}
+  labels:
+    {{- include "hub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kafka
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - name: kafka
+      port: {{ .Values.kafka.service.port }}
+      targetPort: kafka
+      protocol: TCP
+    - name: controller
+      port: {{ .Values.kafka.service.controllerPort }}
+      targetPort: controller
+      protocol: TCP
+  selector:
+    {{- include "hub.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: kafka
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $kafkaName }}
+  labels:
+    {{- include "hub.labels" . | nindent 4 }}
+    app.kubernetes.io/component: kafka
+spec:
+  serviceName: {{ $headlessServiceName }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "hub.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: kafka
+  template:
+    metadata:
+      labels:
+        {{- include "hub.labels" . | nindent 8 }}
+        app.kubernetes.io/component: kafka
+    spec:
+      initContainers:
+        - name: prepare-kafka-config
+          image: "{{ .Values.kafka.image.repository }}:{{ .Values.kafka.image.tag }}"
+          imagePullPolicy: {{ .Values.kafka.image.pullPolicy }}
+          command:
+            - /bin/sh
+            - -c
+            - cp -R /opt/kafka/config/. /mnt/kafka-config
+          volumeMounts:
+            - name: kafka-config
+              mountPath: /mnt/kafka-config
+      containers:
+        - name: kafka
+          image: "{{ .Values.kafka.image.repository }}:{{ .Values.kafka.image.tag }}"
+          imagePullPolicy: {{ .Values.kafka.image.pullPolicy }}
+          ports:
+            - name: kafka
+              containerPort: {{ .Values.kafka.service.port }}
+              protocol: TCP
+            - name: controller
+              containerPort: {{ .Values.kafka.service.controllerPort }}
+              protocol: TCP
+          env:
+            - name: KAFKA_NODE_ID
+              value: "1"
+            - name: KAFKA_PROCESS_ROLES
+              value: broker,controller
+            - name: KAFKA_LISTENERS
+              value: "PLAINTEXT://:{{ .Values.kafka.service.port }},CONTROLLER://:{{ .Values.kafka.service.controllerPort }}"
+            - name: KAFKA_ADVERTISED_LISTENERS
+              value: "PLAINTEXT://{{ $kafkaDnsName }}:{{ .Values.kafka.service.port }}"
+            - name: KAFKA_CONTROLLER_LISTENER_NAMES
+              value: CONTROLLER
+            - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+              value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+            - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+              value: "1@{{ $controllerDnsName }}:{{ .Values.kafka.service.controllerPort }}"
+            - name: KAFKA_INTER_BROKER_LISTENER_NAME
+              value: PLAINTEXT
+            - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+              value: {{ .Values.kafka.config.offsetsTopicReplicationFactor | quote }}
+            - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+              value: {{ .Values.kafka.config.transactionStateLogReplicationFactor | quote }}
+            - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+              value: {{ .Values.kafka.config.transactionStateLogMinIsr | quote }}
+            - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+              value: {{ .Values.kafka.config.groupInitialRebalanceDelayMs | quote }}
+            - name: KAFKA_NUM_PARTITIONS
+              value: {{ .Values.kafka.config.numPartitions | quote }}
+{{- with .Values.kafka.extraEnv }}
+{{ toYaml . | nindent 12 }}
+{{- end }}
+          readinessProbe:
+            tcpSocket:
+              port: kafka
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            tcpSocket:
+              port: kafka
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.kafka.resources | nindent 12 }}
+          volumeMounts:
+            - name: kafka-data
+              mountPath: /var/lib/kafka/data
+            - name: kafka-config
+              mountPath: /opt/kafka/config
+            - name: kafka-logs
+              mountPath: /opt/kafka/logs
+      volumes:
+        - name: kafka-config
+          emptyDir: {}
+        - name: kafka-logs
+          emptyDir: {}
+{{- if not .Values.kafka.storage.enabled }}
+        - name: kafka-data
+          emptyDir: {}
+{{- end }}
+{{- if .Values.kafka.storage.enabled }}
+  volumeClaimTemplates:
+    - metadata:
+        name: kafka-data
+        labels:
+          {{- include "hub.labels" . | nindent 10 }}
+          app.kubernetes.io/component: kafka
+      spec:
+        accessModes:
+          {{- toYaml .Values.kafka.storage.accessModes | nindent 10 }}
+        resources:
+          requests:
+            storage: {{ .Values.kafka.storage.size }}
+{{- if .Values.kafka.storage.storageClassName }}
+        storageClassName: {{ .Values.kafka.storage.storageClassName | quote }}
+{{- end }}
+{{- end }}
