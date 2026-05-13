@@ -42,13 +42,13 @@ mcp = FastMCP(
 )
 
 SNOW_URL = os.getenv("SERVICENOW_URL", "http://servicenow-mock.dark-noc-servicenow-mock.svc:8080").rstrip("/")
-SNOW_API_KEY = os.getenv("SERVICENOW_API_KEY", "demo-api-key-2026")
+SNOW_API_KEY = os.environ["SERVICENOW_API_KEY"]
 SNOW_USERNAME = os.getenv("SERVICENOW_USERNAME", "")
 SNOW_PASSWORD = os.getenv("SERVICENOW_PASSWORD", "")
 SNOW_MODE = os.getenv("SERVICENOW_MODE", "auto").lower()
 SNOW_CALLER_NAME = os.getenv("SERVICENOW_CALLER_NAME", "NOC Agent")
 SLACK_BOT_TOKEN = os.getenv("SLACK_BOT_TOKEN", "")
-SLACK_NOC_CHANNEL = os.getenv("SLACK_NOC_CHANNEL", "#demos")
+SLACK_NOC_CHANNEL = os.getenv("SLACK_NOC_CHANNEL", "#dark-noc-alerts")
 SLACK_BASE_URL = "https://slack.com/api"
 
 
@@ -185,42 +185,49 @@ def create_incident(
     Returns:
         Dict with ticket_number, sys_id, and incident URL
     """
-    caller_value = SNOW_CALLER_NAME
-    with _snow_client() as client:
-        if _is_real_servicenow():
-            caller_sys_id = _resolve_or_create_caller_sys_id(client, SNOW_CALLER_NAME)
-            if caller_sys_id:
-                caller_value = caller_sys_id
+    try:
+        caller_value = SNOW_CALLER_NAME
+        with _snow_client() as client:
+            if _is_real_servicenow():
+                caller_sys_id = _resolve_or_create_caller_sys_id(client, SNOW_CALLER_NAME)
+                if caller_sys_id:
+                    caller_value = caller_sys_id
 
-        payload = {
+            payload = {
+                "short_description": short_description[:160],
+                "description": description,
+                "priority": str(priority),
+                "caller_id": caller_value,
+                "assignment_group": assignment_group,
+                "category": category,
+                "subcategory": subcategory,
+                "state": "1",
+                "urgency": str(priority),
+                "impact": str(priority),
+            }
+            body = payload if _is_real_servicenow() else {"record": payload}
+            resp = client.post("/table/incident", json=body)
+            resp.raise_for_status()
+            data = _extract_record(resp.json())
+
+        result = {
+            "success": True,
+            "ticket_number": data.get("number", ""),
+            "sys_id": data.get("sys_id", ""),
+            "state": "New",
+            "priority": priority,
             "short_description": short_description[:160],
-            "description": description,
-            "priority": str(priority),
-            "caller_id": caller_value,
-            "assignment_group": assignment_group,
-            "category": category,
-            "subcategory": subcategory,
-            "state": "1",
-            "urgency": str(priority),
-            "impact": str(priority),
+            "caller_name": SNOW_CALLER_NAME,
+            "incident_url": _incident_url(data.get("sys_id", ""), data.get("number", "")),
         }
-        body = payload if _is_real_servicenow() else {"record": payload}
-        resp = client.post("/table/incident", json=body)
-        resp.raise_for_status()
-        data = _extract_record(resp.json())
-
-    result = {
-        "success": True,
-        "ticket_number": data.get("number", ""),
-        "sys_id": data.get("sys_id", ""),
-        "state": "New",
-        "priority": priority,
-        "short_description": short_description[:160],
-        "caller_name": SNOW_CALLER_NAME,
-        "incident_url": _incident_url(data.get("sys_id", ""), data.get("number", "")),
-    }
-    result["slack_notification"] = _notify_slack_ticket_created(result)
-    return result
+        result["slack_notification"] = _notify_slack_ticket_created(result)
+        return result
+    except httpx.HTTPStatusError as e:
+        return {"success": False, "error": f"ServiceNow API error: {e.response.status_code} – {e.response.text[:200]}"}
+    except httpx.HTTPError as e:
+        return {"success": False, "error": f"ServiceNow connection error: {e}"}
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
 
 
 @mcp.tool()
@@ -240,24 +247,31 @@ def update_incident(
     Returns:
         Dict with update confirmation
     """
-    state_map = {"in_progress": "2", "resolved": "6", "closed": "7", "": ""}
+    try:
+        state_map = {"in_progress": "2", "resolved": "6", "closed": "7", "": ""}
 
-    payload: dict[str, str] = {"work_notes": work_notes}
-    if state and state in state_map:
-        payload["state"] = state_map[state]
+        payload: dict[str, str] = {"work_notes": work_notes}
+        if state and state in state_map:
+            payload["state"] = state_map[state]
 
-    with _snow_client() as client:
-        record = _lookup_incident(client, ticket_number)
-        incident_key = record.get("sys_id", ticket_number) if _is_real_servicenow() else ticket_number
-        body = payload if _is_real_servicenow() else {"record": payload}
-        resp = client.patch(f"/table/incident/{incident_key}", json=body)
-        resp.raise_for_status()
+        with _snow_client() as client:
+            record = _lookup_incident(client, ticket_number)
+            incident_key = record.get("sys_id", ticket_number) if _is_real_servicenow() else ticket_number
+            body = payload if _is_real_servicenow() else {"record": payload}
+            resp = client.patch(f"/table/incident/{incident_key}", json=body)
+            resp.raise_for_status()
 
-    return {
-        "success": True,
-        "ticket_number": ticket_number,
-        "updated_state": state or "unchanged",
-    }
+        return {
+            "success": True,
+            "ticket_number": ticket_number,
+            "updated_state": state or "unchanged",
+        }
+    except httpx.HTTPStatusError as e:
+        return {"success": False, "error": f"ServiceNow API error: {e.response.status_code} – {e.response.text[:200]}"}
+    except httpx.HTTPError as e:
+        return {"success": False, "error": f"ServiceNow connection error: {e}"}
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
 
 
 @mcp.tool()
@@ -271,20 +285,27 @@ def get_incident(ticket_number: str) -> dict:
     Returns:
         Dict with full incident details
     """
-    with _snow_client() as client:
-        data = _lookup_incident(client, ticket_number)
+    try:
+        with _snow_client() as client:
+            data = _lookup_incident(client, ticket_number)
 
-    state_labels = {"1": "New", "2": "In Progress", "3": "On Hold", "6": "Resolved", "7": "Closed"}
+        state_labels = {"1": "New", "2": "In Progress", "3": "On Hold", "6": "Resolved", "7": "Closed"}
 
-    return {
-        "ticket_number": ticket_number,
-        "short_description": data.get("short_description", ""),
-        "state": state_labels.get(str(data.get("state", "1")), "Unknown"),
-        "priority": data.get("priority", ""),
-        "assignment_group": data.get("assignment_group", ""),
-        "created": data.get("sys_created_on", ""),
-        "updated": data.get("sys_updated_on", ""),
-    }
+        return {
+            "ticket_number": ticket_number,
+            "short_description": data.get("short_description", ""),
+            "state": state_labels.get(str(data.get("state", "1")), "Unknown"),
+            "priority": data.get("priority", ""),
+            "assignment_group": data.get("assignment_group", ""),
+            "created": data.get("sys_created_on", ""),
+            "updated": data.get("sys_updated_on", ""),
+        }
+    except httpx.HTTPStatusError as e:
+        return {"success": False, "error": f"ServiceNow API error: {e.response.status_code} – {e.response.text[:200]}"}
+    except httpx.HTTPError as e:
+        return {"success": False, "error": f"ServiceNow connection error: {e}"}
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
 
 
 @mcp.tool()
@@ -304,26 +325,33 @@ def resolve_incident(
     Returns:
         Dict with resolution confirmation
     """
-    payload = {
-        "state": "6",
-        "close_code": resolution_code,
-        "close_notes": resolution_notes,
-        "resolved_by": "noc-agent",
-    }
+    try:
+        payload = {
+            "state": "6",
+            "close_code": resolution_code,
+            "close_notes": resolution_notes,
+            "resolved_by": "noc-agent",
+        }
 
-    with _snow_client() as client:
-        record = _lookup_incident(client, ticket_number)
-        incident_key = record.get("sys_id", ticket_number) if _is_real_servicenow() else ticket_number
-        body = payload if _is_real_servicenow() else {"record": payload}
-        resp = client.patch(f"/table/incident/{incident_key}", json=body)
-        resp.raise_for_status()
+        with _snow_client() as client:
+            record = _lookup_incident(client, ticket_number)
+            incident_key = record.get("sys_id", ticket_number) if _is_real_servicenow() else ticket_number
+            body = payload if _is_real_servicenow() else {"record": payload}
+            resp = client.patch(f"/table/incident/{incident_key}", json=body)
+            resp.raise_for_status()
 
-    return {
-        "success": True,
-        "ticket_number": ticket_number,
-        "state": "Resolved",
-        "resolution_code": resolution_code,
-    }
+        return {
+            "success": True,
+            "ticket_number": ticket_number,
+            "state": "Resolved",
+            "resolution_code": resolution_code,
+        }
+    except httpx.HTTPStatusError as e:
+        return {"success": False, "error": f"ServiceNow API error: {e.response.status_code} – {e.response.text[:200]}"}
+    except httpx.HTTPError as e:
+        return {"success": False, "error": f"ServiceNow connection error: {e}"}
+    except ValueError as e:
+        return {"success": False, "error": str(e)}
 
 
 def main() -> None:

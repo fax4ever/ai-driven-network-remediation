@@ -85,41 +85,46 @@ def query_logs(
     Returns:
         Dict with log lines list: [{timestamp, line, labels}]
     """
-    end_ns = int(datetime.now(timezone.utc).timestamp() * 1_000_000_000)
-    start_ns = end_ns - _parse_duration_ns(duration)
+    try:
+        end_ns = int(datetime.now(timezone.utc).timestamp() * 1_000_000_000)
+        start_ns = end_ns - _parse_duration_ns(duration)
 
-    with _loki_client() as client:
-        resp = client.get("/query_range", params={
-            "query": logql_query,
-            "start": start_ns,
-            "end": end_ns,
-            "limit": limit,
-            "direction": "backward",
-        })
-        resp.raise_for_status()
-        data = resp.json()
-
-    results = data.get("data", {}).get("result", [])
-    log_lines = []
-    for stream in results:
-        labels = stream.get("stream", {})
-        for ts_val, line in stream.get("values", []):
-            log_lines.append({
-                "timestamp": datetime.fromtimestamp(
-                    int(ts_val) / 1_000_000_000, tz=timezone.utc
-                ).isoformat(),
-                "line": line,
-                "labels": labels,
+        with _loki_client() as client:
+            resp = client.get("/query_range", params={
+                "query": logql_query,
+                "start": start_ns,
+                "end": end_ns,
+                "limit": limit,
+                "direction": "backward",
             })
+            resp.raise_for_status()
+            data = resp.json()
 
-    log_lines.sort(key=lambda x: x["timestamp"], reverse=True)
+        results = data.get("data", {}).get("result", [])
+        log_lines = []
+        for stream in results:
+            labels = stream.get("stream", {})
+            for ts_val, line in stream.get("values", []):
+                log_lines.append({
+                    "timestamp": datetime.fromtimestamp(
+                        int(ts_val) / 1_000_000_000, tz=timezone.utc
+                    ).isoformat(),
+                    "line": line,
+                    "labels": labels,
+                })
 
-    return {
-        "query": logql_query,
-        "duration": duration,
-        "count": len(log_lines),
-        "logs": log_lines[:limit],
-    }
+        log_lines.sort(key=lambda x: x["timestamp"], reverse=True)
+
+        return {
+            "query": logql_query,
+            "duration": duration,
+            "count": len(log_lines),
+            "logs": log_lines[:limit],
+        }
+    except httpx.HTTPStatusError as e:
+        return {"success": False, "error": f"LokiStack API error: {e.response.status_code} – {e.response.text[:200]}"}
+    except httpx.HTTPError as e:
+        return {"success": False, "error": f"LokiStack connection error: {e}"}
 
 
 @mcp.tool()
@@ -163,39 +168,44 @@ def count_errors(
     Returns:
         Dict with error counts per 5-minute buckets and total
     """
-    end_ns = int(datetime.now(timezone.utc).timestamp() * 1_000_000_000)
-    start_ns = end_ns - _parse_duration_ns(duration)
+    try:
+        end_ns = int(datetime.now(timezone.utc).timestamp() * 1_000_000_000)
+        start_ns = end_ns - _parse_duration_ns(duration)
 
-    metric_query = f'sum(count_over_time({{namespace="{namespace}", app="{app}"}} |= "error" [5m]))'
+        metric_query = f'sum(count_over_time({{namespace="{namespace}", app="{app}"}} |= "error" [5m]))'
 
-    with _loki_client() as client:
-        resp = client.get("/query_range", params={
-            "query": metric_query,
-            "start": start_ns,
-            "end": end_ns,
-            "step": "300",
-        })
-        resp.raise_for_status()
-        data = resp.json()
-
-    results = data.get("data", {}).get("result", [])
-    buckets = []
-    for series in results:
-        for ts_val, count in series.get("values", []):
-            buckets.append({
-                "time": datetime.fromtimestamp(int(ts_val), tz=timezone.utc).isoformat(),
-                "error_count": int(float(count)),
+        with _loki_client() as client:
+            resp = client.get("/query_range", params={
+                "query": metric_query,
+                "start": start_ns,
+                "end": end_ns,
+                "step": "300",
             })
+            resp.raise_for_status()
+            data = resp.json()
 
-    total = sum(b["error_count"] for b in buckets)
-    return {
-        "namespace": namespace,
-        "app": app,
-        "duration": duration,
-        "total_errors": total,
-        "buckets": buckets,
-        "avg_errors_per_5min": total / max(len(buckets), 1),
-    }
+        results = data.get("data", {}).get("result", [])
+        buckets = []
+        for series in results:
+            for ts_val, count in series.get("values", []):
+                buckets.append({
+                    "time": datetime.fromtimestamp(int(ts_val), tz=timezone.utc).isoformat(),
+                    "error_count": int(float(count)),
+                })
+
+        total = sum(b["error_count"] for b in buckets)
+        return {
+            "namespace": namespace,
+            "app": app,
+            "duration": duration,
+            "total_errors": total,
+            "buckets": buckets,
+            "avg_errors_per_5min": total / max(len(buckets), 1),
+        }
+    except httpx.HTTPStatusError as e:
+        return {"success": False, "error": f"LokiStack API error: {e.response.status_code} – {e.response.text[:200]}"}
+    except httpx.HTTPError as e:
+        return {"success": False, "error": f"LokiStack connection error: {e}"}
 
 
 def main() -> None:

@@ -126,8 +126,13 @@ def send_alert(
         }],
     }
 
-    data = _slack_post("chat.postMessage", payload)
-    return {"success": True, "ts": data.get("ts"), "channel": data.get("channel")}
+    try:
+        data = _slack_post("chat.postMessage", payload)
+        return {"success": True, "ts": data.get("ts"), "channel": data.get("channel")}
+    except httpx.HTTPStatusError as e:
+        return {"success": False, "error": f"Slack HTTP error: {e.response.status_code} – {e.response.text[:200]}"}
+    except (httpx.HTTPError, ValueError) as e:
+        return {"success": False, "error": f"Slack error: {e}"}
 
 
 @mcp.tool()
@@ -183,8 +188,13 @@ def send_remediation(
     if thread_ts:
         payload["thread_ts"] = thread_ts
 
-    data = _slack_post("chat.postMessage", payload)
-    return {"success": True, "ts": data.get("ts")}
+    try:
+        data = _slack_post("chat.postMessage", payload)
+        return {"success": True, "ts": data.get("ts")}
+    except httpx.HTTPStatusError as e:
+        return {"success": False, "error": f"Slack HTTP error: {e.response.status_code} – {e.response.text[:200]}"}
+    except (httpx.HTTPError, ValueError) as e:
+        return {"success": False, "error": f"Slack error: {e}"}
 
 
 @mcp.tool()
@@ -202,8 +212,13 @@ def send_message(
     Returns:
         Dict with message timestamp
     """
-    data = _slack_post("chat.postMessage", {"channel": channel, "text": text})
-    return {"success": True, "ts": data.get("ts")}
+    try:
+        data = _slack_post("chat.postMessage", {"channel": channel, "text": text})
+        return {"success": True, "ts": data.get("ts")}
+    except httpx.HTTPStatusError as e:
+        return {"success": False, "error": f"Slack HTTP error: {e.response.status_code} – {e.response.text[:200]}"}
+    except (httpx.HTTPError, ValueError) as e:
+        return {"success": False, "error": f"Slack error: {e}"}
 
 
 @mcp.tool()
@@ -263,8 +278,13 @@ def send_incident_ticket(
         ],
     }
 
-    data = _slack_post("chat.postMessage", payload)
-    return {"success": True, "ts": data.get("ts"), "ticket": ticket_number}
+    try:
+        data = _slack_post("chat.postMessage", payload)
+        return {"success": True, "ts": data.get("ts"), "ticket": ticket_number}
+    except httpx.HTTPStatusError as e:
+        return {"success": False, "error": f"Slack HTTP error: {e.response.status_code} – {e.response.text[:200]}"}
+    except (httpx.HTTPError, ValueError) as e:
+        return {"success": False, "error": f"Slack error: {e}"}
 
 
 def main() -> None:
