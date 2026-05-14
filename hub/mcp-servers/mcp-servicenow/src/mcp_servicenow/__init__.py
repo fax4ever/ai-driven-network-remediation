@@ -169,7 +169,7 @@ def create_incident(
     priority: int = 3,
     assignment_group: str = "NOC-Team",
     category: str = "Infrastructure",
-    subcategory: str = "Kubernetes",
+    subcategory: str = "OpenShift",
 ) -> dict:
     """
     Create a new ServiceNow incident ticket.
@@ -180,7 +180,7 @@ def create_incident(
         priority:          1=Critical, 2=High, 3=Medium, 4=Low
         assignment_group:  Team to assign to (default: NOC-Team)
         category:          Incident category (default: Infrastructure)
-        subcategory:       Incident subcategory (default: Kubernetes)
+        subcategory:       Incident subcategory (default: OpenShift)
 
     Returns:
         Dict with ticket_number, sys_id, and incident URL

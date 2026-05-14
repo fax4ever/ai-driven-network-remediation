@@ -1,12 +1,12 @@
 """
 OpenShift API MCP Server
 =========================
-MCP server exposing OpenShift/Kubernetes operations as tools
+MCP server exposing OpenShift operations as tools
 for the AI-driven network remediation agent.
 
 Tools:
     get_pods               - List pods in a namespace with status
-    get_events             - Get recent Kubernetes events (warnings)
+    get_events             - Get recent OpenShift events (warnings)
     rollout_restart        - Trigger a rolling restart
     patch_deployment_memory - Patch deployment memory limits
     get_pod_logs           - Get recent logs from a specific pod
