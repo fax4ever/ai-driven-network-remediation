@@ -25,7 +25,7 @@ MINIO_RUNBOOK_PREFIX: Final[str] = os.environ.get("MINIO_RUNBOOK_PREFIX", "runbo
 
 app = FastAPI(
     title="Ingestion Pipeline",
-    description="Hello-world service calling Llama Stack server",
+    description="Syncs packaged runbooks to MinIO and ingests them into a Llama Stack vector store",
     version="0.1.0",
 )
 
@@ -83,18 +83,18 @@ def _sync_packaged_runbooks_to_minio(minio_client: MinioDocumentClient) -> dict[
 
 
 @app.get("/health")
-async def health() -> dict[str, str]:
+def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
 @app.get("/models")
-async def models() -> dict[str, Any]:
+def models() -> dict[str, Any]:
     client = _get_client()
     return {"models": client.list_models()}
 
 
 @app.get("/vector-store")
-async def vector_store() -> dict[str, Any]:
+def vector_store() -> dict[str, Any]:
     client = _get_client()
     summary: VectorStoreSummary = client.ensure_vector_store()
     return {
@@ -106,13 +106,13 @@ async def vector_store() -> dict[str, Any]:
 
 
 @app.post("/runbooks/sync")
-async def sync_runbooks() -> dict[str, Any]:
+def sync_runbooks() -> dict[str, Any]:
     minio_client = _get_minio_client()
     return _sync_packaged_runbooks_to_minio(minio_client)
 
 
 @app.post("/runbooks/ingest")
-async def ingest_runbooks() -> dict[str, Any]:
+def ingest_runbooks() -> dict[str, Any]:
     minio_client = _get_minio_client()
     vector_client = _get_client()
     objects = minio_client.load_prefix_text_objects(MINIO_RUNBOOK_PREFIX)
@@ -142,7 +142,7 @@ async def ingest_runbooks() -> dict[str, Any]:
 
 
 @app.get("/vector-store/files/{file_id}/content")
-async def vector_store_file_content(file_id: str) -> dict[str, Any]:
+def vector_store_file_content(file_id: str) -> dict[str, Any]:
     client = _get_client()
     summary: VectorStoreFileContentSummary = client.get_file_content(file_id=file_id)
     return {
