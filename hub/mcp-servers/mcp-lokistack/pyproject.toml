@@ -1,13 +1,17 @@
 [project]
 name = "mcp-lokistack"
 version = "0.1.0"
-description = "Add your description here"
+description = "MCP server for querying LokiStack via LogQL for the AI remediation agent"
 readme = "README.md"
 authors = [
     { name = "rh-ai-quickstart" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "mcp[cli]>=1.23",
+    "httpx>=0.28",
+    "uvicorn>=0.34",
+]
 
 [project.scripts]
 mcp-lokistack = "mcp_lokistack:main"

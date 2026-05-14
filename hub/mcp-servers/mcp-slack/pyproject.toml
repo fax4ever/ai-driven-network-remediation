@@ -1,8 +1,8 @@
 [project]
-name = "mcp-aap"
+name = "mcp-slack"
 version = "0.1.0"
-description = "MCP server wrapping Ansible Automation Platform REST API for the AI remediation agent"
-readme = "README.md"
+description = "MCP server wrapping Slack Bot API for NOC alerts and remediation notifications"
+readme = { text = "", content-type = "text/markdown" }
 authors = [
     { name = "rh-ai-quickstart" }
 ]
@@ -14,7 +14,7 @@ dependencies = [
 ]
 
 [project.scripts]
-mcp-aap = "mcp_aap:main"
+mcp-slack = "mcp_slack:main"
 
 [build-system]
 requires = ["uv_build>=0.9.13,<0.10.0"]
