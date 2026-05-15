@@ -7,7 +7,12 @@ authors = [
     { name = "rh-ai-quickstart" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "fastapi>=0.115.0",
+    "langgraph>=1.2.0",
+    "llama-stack-client==0.6.0",
+    "uvicorn>=0.34.0",
+]
 
 [project.scripts]
 agent-service = "agent_service:main"
