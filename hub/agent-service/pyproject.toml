@@ -7,7 +7,10 @@ authors = [
     { name = "rh-ai-quickstart" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "langgraph>=1.2.0",
+    "llama-stack-client==0.6.0",
+]
 
 [project.scripts]
 agent-service = "agent_service:main"
