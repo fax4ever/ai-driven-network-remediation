@@ -1,11 +1,36 @@
 # https://kubernetes.io/docs/concepts/containers/images/
 image:
   registry: quay.io/rh-ai-quickstart
+  agentService: hub-agent-service
   chatbotService: hub-chatbot-service
   ingestionPipeline: hub-ingestion-pipeline
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "0.0.1"
+
+agentService:
+  replicaCount: 1
+  llamastackHost: llamastack
+  llamastackPort: "8321"
+  llamastackModel: unset-model
+  systemPrompt: You are a network remediation assistant.
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+  resources: {}
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 10
 
 global:
   routes:
