@@ -1,21 +1,20 @@
 [project]
-name = "agent-service"
+name = "ingestion-pipeline"
 version = "0.1.0"
-description = "Add your description here"
-readme = "README.md"
+description = "Hello-world service calling Llama Stack server"
 authors = [
     { name = "rh-ai-quickstart" }
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "fastapi>=0.115.0",
-    "langgraph>=1.2.0",
+    "fastapi>=0.115",
     "llama-stack-client==0.6.0",
-    "uvicorn>=0.34.0",
+    "minio>=7.2.20",
+    "uvicorn>=0.32",
 ]
 
 [project.scripts]
-agent-service = "agent_service:main"
+ingestion-pipeline = "ingestion_pipeline:main"
 
 [build-system]
 requires = ["uv_build>=0.9.13,<0.10.0"]

@@ -1,32 +1,134 @@
 # https://kubernetes.io/docs/concepts/containers/images/
 image:
-  # registry: quay.io/rh-ai-quickstart  # production registry
-  registry: quay.io/ecosystem-appeng
+  registry: quay.io/rh-ai-quickstart
+  agentService: hub-agent-service
   chatbotService: hub-chatbot-service
-  pullPolicy: IfNotPresent
+  ingestionPipeline: hub-ingestion-pipeline
+  pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: "0.0.1"
 
+agentService:
+  replicaCount: 1
+  llamastackHost: llamastack
+  llamastackPort: "8321"
+  llamastackModel: unset-model
+  systemPrompt: You are a network remediation assistant.
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8000
+  resources: {}
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+global:
+  routes:
+    enabled: true
+
+pgvector:
+  secret:
+    user: postgres
+    password: rag_password
+    dbname: rag_blueprint
+    host: pgvector
+    port: "5432"
+
+llama-stack:
+  replicaCount: 1
+  initContainers:
+    enabled: true
+  resources: {}
+  pgvector:
+    enabled: true
+
+ingestionPipeline:
+  vectorStoreName: noc_runbooks
+  minio:
+    endpoint: minio:9000
+    bucket: runbooks
+    secure: false
+    runbookPrefix: runbooks/
+  resources: {}
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 10
+    periodSeconds: 30
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
 chatbotService:
   replicaCount: 1
-
   service:
     type: ClusterIP
     port: 80
     targetPort: 8080
-
   resources: {}
-
   livenessProbe:
     httpGet:
       path: /api/hello
       port: 8080
     initialDelaySeconds: 5
     periodSeconds: 10
-
   readinessProbe:
     httpGet:
       path: /api/hello
       port: 8080
     initialDelaySeconds: 5
     periodSeconds: 10
+
+minio:
+  secret:
+    create: true
+    user: minio_rag_user
+    password: minio_rag_password
+    host: minio
+    port: "9000"
+  sampleFileUpload:
+    enabled: false
+
+kafka:
+  image:
+    repository: apache/kafka
+    tag: "4.1.2"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 9092
+    controllerPort: 9093
+    clusterDomain: cluster.local
+
+  storage:
+    enabled: false
+    size: 10Gi
+    accessModes:
+      - ReadWriteOnce
+    storageClassName: ""
+
+  resources: {}
+
+  config:
+    groupInitialRebalanceDelayMs: 0
+    numPartitions: 1
+    offsetsTopicReplicationFactor: 1
+    transactionStateLogReplicationFactor: 1
+    transactionStateLogMinIsr: 1
+
+  extraEnv: []
