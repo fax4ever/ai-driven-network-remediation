@@ -1,6 +1,5 @@
-import os
 from pathlib import Path
-from typing import Any, Final
+from typing import Any
 
 from fastapi import FastAPI, HTTPException
 
@@ -11,17 +10,7 @@ from ingestion_pipeline.clients.llamastack import (
     VectorStoreSummary,
 )
 from ingestion_pipeline.clients.minio import MinioDocumentClient
-
-LLAMASTACK_HOST = os.environ.get("LLAMASTACK_HOST", "llamastack")
-LLAMASTACK_PORT = int(os.environ.get("LLAMASTACK_PORT", "8321"))
-VECTOR_STORE_NAME: Final[str] = os.environ.get("VECTOR_STORE_NAME", "")
-RUNBOOKS_DIR: Final[Path] = Path(os.environ.get("RUNBOOKS_DIR", "/app/runbooks"))
-MINIO_ENDPOINT: Final[str] = os.environ.get("MINIO_ENDPOINT", "")
-MINIO_ACCESS_KEY: Final[str] = os.environ.get("MINIO_ACCESS_KEY", "")
-MINIO_SECRET_KEY: Final[str] = os.environ.get("MINIO_SECRET_KEY", "")
-MINIO_BUCKET: Final[str] = os.environ.get("MINIO_BUCKET", "")
-MINIO_SECURE: Final[bool] = os.environ.get("MINIO_SECURE", "false").lower() == "true"
-MINIO_RUNBOOK_PREFIX: Final[str] = os.environ.get("MINIO_RUNBOOK_PREFIX", "runbooks/")
+from ingestion_pipeline.config import settings
 
 app = FastAPI(
     title="Ingestion Pipeline",
@@ -32,25 +21,25 @@ app = FastAPI(
 
 def _get_client() -> LlamaStackVectorStoreClient:
     return LlamaStackVectorStoreClient(
-        base_url=f"http://{LLAMASTACK_HOST}:{LLAMASTACK_PORT}",
-        vector_store_name=VECTOR_STORE_NAME,
+        base_url=settings.llamastack_base_url,
+        vector_store_name=settings.vector_store_name,
     )
 
 
 def _get_minio_client() -> MinioDocumentClient:
-    if not MINIO_ENDPOINT or not MINIO_ACCESS_KEY or not MINIO_SECRET_KEY or not MINIO_BUCKET:
+    if not settings.minio_is_configured:
         raise HTTPException(status_code=400, detail="MinIO is not fully configured")
     return MinioDocumentClient(
-        endpoint=MINIO_ENDPOINT,
-        access_key=MINIO_ACCESS_KEY,
-        secret_key=MINIO_SECRET_KEY,
-        bucket=MINIO_BUCKET,
-        secure=MINIO_SECURE,
+        endpoint=settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        bucket=settings.minio_bucket,
+        secure=settings.minio_secure,
     )
 
 
 def _runbook_object_name(filename: str) -> str:
-    prefix = MINIO_RUNBOOK_PREFIX.strip("/")
+    prefix = settings.minio_runbook_prefix.strip("/")
     if not prefix:
         return filename
     return f"{prefix}/{filename}"
@@ -60,8 +49,8 @@ def _sync_packaged_runbooks_to_minio(minio_client: MinioDocumentClient) -> dict[
     minio_client.ensure_bucket()
     uploaded: list[str] = []
     skipped: list[str] = []
-    if RUNBOOKS_DIR.exists():
-        for runbook_path in sorted(RUNBOOKS_DIR.glob("*.md")):
+    if settings.runbooks_dir.exists():
+        for runbook_path in sorted(settings.runbooks_dir.glob("*.md")):
             object_name = _runbook_object_name(runbook_path.name)
             was_uploaded = minio_client.put_text_object_if_missing(
                 object_name,
@@ -73,8 +62,8 @@ def _sync_packaged_runbooks_to_minio(minio_client: MinioDocumentClient) -> dict[
                 skipped.append(object_name)
 
     return {
-        "bucket": MINIO_BUCKET,
-        "prefix": MINIO_RUNBOOK_PREFIX,
+        "bucket": settings.minio_bucket,
+        "prefix": settings.minio_runbook_prefix,
         "uploaded_count": len(uploaded),
         "skipped_count": len(skipped),
         "uploaded_objects": uploaded,
@@ -115,7 +104,7 @@ def sync_runbooks() -> dict[str, Any]:
 def ingest_runbooks() -> dict[str, Any]:
     minio_client = _get_minio_client()
     vector_client = _get_client()
-    objects = minio_client.load_prefix_text_objects(MINIO_RUNBOOK_PREFIX)
+    objects = minio_client.load_prefix_text_objects(settings.minio_runbook_prefix)
     ingested = []
 
     for obj in objects:
@@ -134,8 +123,8 @@ def ingest_runbooks() -> dict[str, Any]:
         )
 
     return {
-        "bucket": MINIO_BUCKET,
-        "prefix": MINIO_RUNBOOK_PREFIX,
+        "bucket": settings.minio_bucket,
+        "prefix": settings.minio_runbook_prefix,
         "ingested_count": len(ingested),
         "objects": ingested,
     }
