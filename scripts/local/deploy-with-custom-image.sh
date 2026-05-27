@@ -25,3 +25,5 @@ REGISTRY="${REGISTRY}" VERSION="${VERSION}" NAMESPACE="${NAMESPACE}" make helm-i
 
 echo "Running integration tests"
 NAMESPACE="${NAMESPACE}" make integration-tests
+
+
