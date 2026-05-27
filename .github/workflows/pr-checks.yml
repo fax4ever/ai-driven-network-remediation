@@ -1,14 +1,14 @@
 name: Pull Request Checks
 
 on:
-  pull_request:
+  pull_request_target:
     types: [opened, synchronize, reopened]
   workflow_dispatch:
   schedule:
     - cron: '0 2 * * *'  # Run daily at 2 AM UTC
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -31,6 +31,36 @@ jobs:
     name: Run e2e tests
     runs-on: ubuntu-latest
     steps:
+      - name: Validate ADNR_LLM_ID variable
+        shell: bash
+        env:
+          ADNR_LLM_ID: ${{ vars.ADNR_LLM_ID }}
+        run: |
+          if [ -z "${ADNR_LLM_ID}" ]; then
+            echo "ADNR_LLM_ID variable is missing or empty. Set it in repository or organization variables."
+            exit 1
+          fi
+
+      - name: Validate ADNR_LLM_URL variable
+        shell: bash
+        env:
+          ADNR_LLM_URL: ${{ vars.ADNR_LLM_URL }}
+        run: |
+          if [ -z "${ADNR_LLM_URL}" ]; then
+            echo "ADNR_LLM_URL variable is missing or empty. Set it in repository or organization variables."
+            exit 1
+          fi
+
+      - name: Validate ADNR_LLM_TOKEN secret
+        shell: bash
+        env:
+          ADNR_LLM_TOKEN: ${{ secrets.ADNR_LLM_TOKEN }}
+        run: |
+          if [ -z "${ADNR_LLM_TOKEN}" ]; then
+            echo "ADNR_LLM_TOKEN secret is missing or empty. Set it in repository or organization secrets."
+            exit 1
+          fi
+
       - name: Print run context
         run: |
           echo "workflow : ${{ github.workflow }}"
@@ -44,6 +74,10 @@ jobs:
 
       - name: Deploy Kind cluster
         uses: ./.github/actions/kind
+        env:
+          ADNR_LLM_ID: ${{ vars.ADNR_LLM_ID }}
+          ADNR_LLM_URL: ${{ vars.ADNR_LLM_URL }}
+          ADNR_LLM_TOKEN: ${{ secrets.ADNR_LLM_TOKEN }}
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v6

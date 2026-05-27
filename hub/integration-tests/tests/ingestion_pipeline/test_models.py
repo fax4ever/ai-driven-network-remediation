@@ -9,6 +9,7 @@ def test_models_list_not_empty(ingestion_client):
     assert response.status_code == 200
     data = response.json()
     assert len(data["models"]) > 0
+    assert any(model.get("id", "").startswith("adnr-llm/") for model in data["models"])
 
 
 def test_vector_store_endpoint_returns_summary(ingestion_client):
