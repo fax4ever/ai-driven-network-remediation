@@ -39,6 +39,7 @@ from .slo import build_incident_movie, compute_slo_metrics, normalize_incident_r
 from .utils import normalize_session_id, utc_now
 
 # ── App State ─────────────────────────────────────────────────────
+MAX_CHAT_SESSIONS = 100
 chat_sessions: dict[str, list[dict[str, str]]] = {}
 _integrations_cache: dict[str, Any] = {"ts": 0.0, "payload": None}
 
@@ -177,6 +178,9 @@ async def chat(req: ChatRequest) -> dict:
         return {"reply": "Please enter a question.", "session_id": normalize_session_id(req.session_id)}
 
     session_id = normalize_session_id(req.session_id)
+    if session_id not in chat_sessions and len(chat_sessions) >= MAX_CHAT_SESSIONS:
+        oldest = next(iter(chat_sessions))
+        del chat_sessions[oldest]
     history = chat_sessions.setdefault(session_id, [])
 
     summary_data = await summary()
