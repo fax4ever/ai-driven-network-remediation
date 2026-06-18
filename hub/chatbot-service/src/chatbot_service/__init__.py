@@ -24,6 +24,7 @@ from pydantic import BaseModel
 from .chat import build_chat_context, call_model, format_chat_reply
 from .config import (
     APP_VERSION,
+    CORS_ORIGINS,
     DEMO_TOPIC,
     INTEGRATIONS_CACHE_TTL,
     INTEGRATION_TARGETS,
@@ -46,7 +47,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=CORS_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
 )

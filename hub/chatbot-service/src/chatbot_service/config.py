@@ -33,6 +33,8 @@ AUDIT_MAX_MESSAGES = int(os.getenv("AUDIT_MAX_MESSAGES", "500"))
 
 INTEGRATIONS_CACHE_TTL = float(os.getenv("INTEGRATIONS_CACHE_TTL", "10"))
 
+CORS_ORIGINS = [o.strip() for o in os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",") if o.strip()]
+
 # TLS verification: path to CA bundle for self-signed certs, "false" to disable, empty for default.
 _ssl_env = os.getenv("SSL_CA_BUNDLE", "")
 if _ssl_env.lower() == "false":
