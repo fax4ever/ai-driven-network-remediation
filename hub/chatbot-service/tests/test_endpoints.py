@@ -90,7 +90,7 @@ def test_demo_trigger_crashloop(mock_publish, client):
 def test_demo_trigger_kafka_failure(mock_publish, client):
     mock_publish.side_effect = Exception("Kafka unreachable")
     resp = client.post("/api/demo/trigger", json={"scenario": "oom", "site": "edge-01"})
-    assert resp.status_code == 200
+    assert resp.status_code == 502
     data = resp.json()
     assert data["status"] == "error"
     assert "Kafka unreachable" in data["error"]
