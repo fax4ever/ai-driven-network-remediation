@@ -240,7 +240,7 @@ async def chat(req: ChatRequest) -> dict:
 
     mcp_items = get_mcp_items(integrations_data)
 
-    llm_ok = model_source == "live"
+    llm_ok = model_source not in ("unreachable", "disabled")
     _deps = build_deps({"llm": llm_ok})
 
     return {
