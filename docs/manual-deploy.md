@@ -6,9 +6,9 @@ $NAMESPACE default `hub`: namespace used to install the Hub
 $REGISTRY default `quay.io/rh-ai-quickstart`: Remote container registry
 $VERSION default `0.1.0`: Versions for all container images
 
-`make helm-install` and `make integration-tests` require the ADNR-backed Llama Stack model to be configured. Set:
+`make helm-install` and `make integration-tests` require the foundation model to be configured. These credentials are used by the single LlamaStack deployment (OGX operator). Set:
 
-- `$ADNR_LLM_ID`: model identifier registered in Llama Stack
+- `$ADNR_LLM_ID`: model identifier registered in LlamaStack
 - `$ADNR_LLM_URL`: remote OpenAI-compatible or vLLM endpoint
 - `$ADNR_LLM_TOKEN`: bearer token for that endpoint
 

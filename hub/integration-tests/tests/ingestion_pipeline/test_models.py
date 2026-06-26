@@ -12,7 +12,7 @@ def test_models_list_not_empty(ingestion_client):
 
 
 def test_sentence_transformers_model_registered(ingestion_client):
-    """Ingestion uses adnr-autorag for RAG; expect an embedding model there."""
+    """Ingestion uses OGX for RAG; expect an embedding model there."""
     response = ingestion_client.get("/models")
     assert response.status_code == 200
     data = response.json()
@@ -28,13 +28,17 @@ def test_sentence_transformers_model_registered(ingestion_client):
     not os.environ.get("GITHUB_ACTIONS"),
     reason="adnr-llm model only provisioned in CI",
 )
-def test_adnr_llm_model_registered(llamastack_client):
-    """Hub llamastack still serves the foundation LLM for chatbot/MCP."""
+def test_inference_model_registered(llamastack_client):
+    """Consolidated LlamaStack registers the foundation LLM via the operator."""
     response = llamastack_client.get("/v1/models")
     assert response.status_code == 200
     data = response.json()
     models = data.get("data", data.get("models", data))
-    assert any(model.get("id", "").startswith("adnr-llm/") for model in models)
+    assert any(
+        model.get("model_type") in ("llm", "text_generation")
+        or "vllm" in model.get("provider_id", "")
+        for model in models
+    ), f"No inference model found in /v1/models: {[m.get('id') for m in models]}"
 
 
 def test_vector_store_endpoint_returns_summary(ingestion_client):

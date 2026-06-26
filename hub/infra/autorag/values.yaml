@@ -1,5 +1,5 @@
 llamaStack:
-  name: adnr-autorag
+  name: ogx
   distributionName: rh-dev
   distributionImage: ""
   replicas: 1

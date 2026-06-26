@@ -43,10 +43,10 @@ http POST http://localhost:8004/mcp \
   params:='{"name":"list_job_templates","arguments":{}}'
 ```
 
-## LlamaStack (OGX)
+## LlamaStack (OGX operator)
 
 ```bash
-oc port-forward -n $NAMESPACE svc/llamastack 8321:8321
+oc port-forward -n $NAMESPACE svc/ogx-service 8321:8321
 ```
 
 ```bash

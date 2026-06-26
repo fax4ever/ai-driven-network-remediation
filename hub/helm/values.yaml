@@ -23,42 +23,17 @@ pgvector:
     host: pgvector
     port: "5432"
 
-llama-stack:
-  host: llamastack
+# Single OGX (LlamaStack) instance via the operator (autorag chart).
+# The ogx-service is created by the LlamaStackDistribution CR
+# deployed by `make autorag-install`.
+llamastack:
+  host: ogx-service
   port: "8321"
-  replicaCount: 1
-  initContainers:
-    enabled: true
-  resources: {}
-  pgvector:
-    enabled: true
-  # Register MCP servers with LlamaStack one by one.
-  mcp-servers:
-    noc-openshift:
-      uri: http://mcp-noc-openshift:8000/mcp
-    noc-kafka:
-      uri: http://mcp-noc-kafka:8000/mcp
-    noc-aap:
-      uri: http://mcp-noc-aap:8000/mcp
-    noc-slack:
-      uri: http://mcp-noc-slack:8000/mcp
-    noc-servicenow:
-      uri: http://mcp-noc-servicenow:8000/mcp
-  # `make helm-install` enables this model when ADNR_LLM_* vars are provided.
-  # The upstream wait-for-models init container expands model URL and token
-  # directly in Bash, so these fields must be concrete values.
-  models:
-    adnr-llm:
-      id: ""
-      enabled: false
-      url: ""
-      apiToken: ""
-      maxTokens: 4096
 
 ingestionPipeline:
   replicaCount: 1
   vectorStoreName: noc_runbooks
-  llamastackHost: adnr-autorag-service
+  llamastackHost: ogx-service
   embeddingModel: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
   chunkSizeTokens: 800
   chunkOverlapTokens: 80
@@ -97,7 +72,7 @@ chatbotService:
     # (secretKeyRef) rather than plain env values for username/password/API key.
     servicenowUrl: "http://servicenow-mock:8080"
     kafkaBootstrap: "kafka:9092"
-    modelApiUrl: "http://llamastack:8321/v1/completions"
+    modelApiUrl: "http://ogx-service:8321/v1/completions"
     modelName: "granite-4-h-tiny"
     demoTopic: "system-alerts"
     auditTopic: "incident-audit"

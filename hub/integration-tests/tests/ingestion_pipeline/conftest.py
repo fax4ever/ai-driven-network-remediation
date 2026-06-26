@@ -37,6 +37,7 @@ def ingestion_client():
 
 @pytest.fixture(scope="session")
 def llamastack_client():
+    """Consolidated LlamaStack (OGX operator) — same instance as autorag."""
     base_url = os.environ.get("LLAMASTACK_URL", "http://localhost:8321")
     _wait_for_health(base_url, "/v1/health", "llamastack")
     with httpx.Client(base_url=base_url, timeout=30.0) as client:

@@ -104,12 +104,6 @@ ADNR_LLM_ENABLED := $(and $(ADNR_LLM_ID),$(ADNR_LLM_URL),$(ADNR_LLM_TOKEN))
 version:
 	@echo $(VERSION)
 
-helm_adnr_llm_args = \
-	$(if $(ADNR_LLM_ENABLED),--set llama-stack.models.adnr-llm.enabled=true,) \
-	$(if $(ADNR_LLM_ENABLED),--set-string llama-stack.models.adnr-llm.id='$(ADNR_LLM_ID)',) \
-	$(if $(ADNR_LLM_ENABLED),--set-string llama-stack.models.adnr-llm.url='$(ADNR_LLM_URL)',) \
-	$(if $(ADNR_LLM_ENABLED),--set-string llama-stack.models.adnr-llm.apiToken='$(ADNR_LLM_TOKEN)',)
-
 helm_mcp_image_args = \
 	--set mcp-servers.mcp-servers.noc-openshift.image.repository=$(REGISTRY)/noc-mcp-openshift \
 	--set mcp-servers.mcp-servers.noc-openshift.image.tag=$(VERSION) \
@@ -132,9 +126,6 @@ helm_servicenow_mock_args = \
 	$(if $(filter true,$(ENABLE_SERVICENOW_MOCK)),--set mcp-servers.mcp-servers.noc-servicenow.env.SERVICENOW_URL=http://servicenow-mock.$(NAMESPACE).svc:8080,) \
 	$(if $(filter true,$(ENABLE_SERVICENOW_MOCK)),--set mcp-servers.mcp-servers.noc-servicenow.env.SERVICENOW_MODE=mock,) \
 	$(if $(filter true,$(ENABLE_SERVICENOW_MOCK)),--set-string mcpSecrets.servicenow.apiKey=demo-api-key-2026,)
-
-helm_lokistack_registration_args = \
-	$(if $(filter true,$(ENABLE_LOKISTACK)),--set-string llama-stack.mcp-servers.noc-lokistack.uri=http://mcp-noc-lokistack:8000/mcp,)
 
 .PHONY: build-all-images
 build-all-images: build-chatbot-image build-agent-image build-frontend-image build-mcp-images
@@ -255,8 +246,6 @@ ifeq ($(ENABLE_HUB),true)
 		--set mcp-servers.mcp-servers.noc-lokistack.enabled=$(ENABLE_LOKISTACK) \
 		--set-string lokistack.name='$(LOKISTACK_NAME)' \
 		--set-string lokistack.namespace='$(LOKISTACK_NAMESPACE)' \
-		$(helm_lokistack_registration_args) \
-		$(helm_adnr_llm_args) \
 		$(helm_aap_mock_args) \
 		$(helm_servicenow_mock_args) \
 		$(HELM_EXTRA_ARGS) \
@@ -418,10 +407,8 @@ ifeq ($(ENABLE_HUB),true)
 	PF2_PID=$$!; \
 	oc port-forward -n $(NAMESPACE) svc/mcp-noc-openshift 8001:8000 & \
 	PF3_PID=$$!; \
-	oc port-forward -n $(NAMESPACE) svc/llamastack 8321:8321 & \
+	oc port-forward -n $(NAMESPACE) svc/ogx-service 8321:8321 & \
 	PF10_PID=$$!; \
-	oc port-forward -n $(NAMESPACE) svc/adnr-autorag-service 8322:8321 & \
-	PF11_PID=$$!; \
 	PF4_PID=""; \
 	if [ "$(ENABLE_LOKISTACK)" = "true" ]; then \
 		oc port-forward -n $(NAMESPACE) svc/mcp-noc-lokistack 8002:8000 & \
@@ -437,9 +424,9 @@ ifeq ($(ENABLE_HUB),true)
 	PF8_PID=$$!; \
 	oc port-forward -n $(NAMESPACE) svc/hub-agent-service 8007:8001 & \
 	PF9_PID=$$!; \
-	trap "kill $$PF1_PID $$PF2_PID $$PF3_PID $$PF4_PID $$PF5_PID $$PF6_PID $$PF7_PID $$PF8_PID $$PF9_PID $$PF10_PID $$PF11_PID" EXIT; \
+	trap "kill $$PF1_PID $$PF2_PID $$PF3_PID $$PF4_PID $$PF5_PID $$PF6_PID $$PF7_PID $$PF8_PID $$PF9_PID $$PF10_PID" EXIT; \
 	sleep 2 && cd hub/integration-tests && \
-	AGENT_SERVICE_URL=http://localhost:8007 LLAMASTACK_URL=http://localhost:8321 AUTORAG_URL=http://localhost:8322 ENABLE_LOKISTACK=$(ENABLE_LOKISTACK) EDGE_NAMESPACE=$(EDGE_NAMESPACE) uv run pytest
+	AGENT_SERVICE_URL=http://localhost:8007 LLAMASTACK_URL=http://localhost:8321 AUTORAG_URL=http://localhost:8321 ENABLE_LOKISTACK=$(ENABLE_LOKISTACK) EDGE_NAMESPACE=$(EDGE_NAMESPACE) uv run pytest
 else
 	@echo "ENABLE_HUB is not true — skipping hub integration tests"
 endif
@@ -530,12 +517,12 @@ autorag-install:
 		$(AUTORAG_HELM_EXTRA_ARGS)
 	oc wait --for=condition=Ready pod -l app=milvus-standalone -n $(NAMESPACE) --timeout=180s
 	oc wait --for=condition=Ready pod -l app=etcd -n $(NAMESPACE) --timeout=180s
-	oc wait --for=condition=Ready pod -l app.kubernetes.io/instance=adnr-autorag -n $(NAMESPACE) --timeout=300s
+	oc wait --for=condition=Ready pod -l app.kubernetes.io/instance=ogx -n $(NAMESPACE) --timeout=300s
 
 .PHONY: autorag-uninstall
 autorag-uninstall:
 	helm uninstall $(AUTORAG_RELEASE) --namespace $(NAMESPACE) --ignore-not-found
-	oc delete llamastackdistribution adnr-autorag --namespace $(NAMESPACE) --ignore-not-found
+	oc delete llamastackdistribution ogx --namespace $(NAMESPACE) --ignore-not-found
 
 .PHONY: autorag-status
 autorag-status:

@@ -3,6 +3,10 @@
 AutoRAG is an OpenShift AI (3.4) feature that automatically finds the best RAG configuration
 (chunking strategy, embedding model, retrieval method) for your documents and use case.
 
+The `ogx` LlamaStackDistribution is the **single OGX deployment** used by all hub services
+(ingestion pipeline, chatbot, agent service). It provides LLM inference, vector storage
+(Milvus), and embeddings (sentence-transformers).
+
 > **Technology Preview:** AutoRAG is a TP feature in OpenShift AI 3.4.
 
 ## Prerequisites
@@ -30,7 +34,7 @@ AutoRAG is an OpenShift AI (3.4) feature that automatically finds the best RAG c
   │                                                     ▼  │
   │  ┌─────────────────────┐    ┌──────────────────────┐  │
   │  │ LlamaStackDistrib.  │    │  Milvus + etcd       │  │
-  │  │  (adnr-autorag)     │───▶│  (vector storage)    │  │
+  │  │  (ogx)              │───▶│  (vector storage)    │  │
   │  │  + sentence-trans.  │    └──────────────────────┘  │
   │  │  + Granite LLM      │                              │
   │  └─────────────────────┘                              │
@@ -89,7 +93,7 @@ remediation runbooks.
 2. Navigate to **AutoRAG** section
 3. Click **Create optimization run**
 4. Configure:
-   - **Llama Stack connection**: `http://adnr-autorag:8321` (the LSD deployed above)
+   - **OGX connection**: `http://ogx-service:8321` (the LSD deployed above)
    - **Documents**: Upload from MinIO bucket or select the runbooks folder
    - **Test data**: Upload `hub/autorag/test-data.json`
    - **Optimization metric**: "Context correctness" (recommended for retrieval-focused RAG)
