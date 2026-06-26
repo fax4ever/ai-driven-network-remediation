@@ -1,7 +1,7 @@
 llamaStack:
   name: ogx
   distributionName: rh-dev
-  distributionImage: ""
+  distributionImage: "docker.io/ogxai/distribution-starter:1.1.2"
   replicas: 1
   resources:
     requests:

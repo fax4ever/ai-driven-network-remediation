@@ -35,10 +35,9 @@ def test_inference_model_registered(llamastack_client):
     data = response.json()
     models = data.get("data", data.get("models", data))
     assert any(
-        model.get("model_type") in ("llm", "text_generation")
-        or "vllm" in model.get("provider_id", "")
+        model.get("id", "").startswith("vllm/")
         for model in models
-    ), f"No inference model found in /v1/models: {[m.get('id') for m in models]}"
+    ), f"No vllm inference model found in /v1/models: {[m.get('id') for m in models]}"
 
 
 def test_vector_store_endpoint_returns_summary(ingestion_client):
