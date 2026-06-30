@@ -116,6 +116,8 @@ chatbotService:
 
 agentService:
   replicaCount: 1
+  granite:
+    modelName: "granite-4.0-8b"
   service:
     type: ClusterIP
     port: 8001
