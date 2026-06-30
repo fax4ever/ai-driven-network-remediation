@@ -36,3 +36,15 @@ postgres:
 milvus:
   secret:
     name: milvus-secret
+
+mcpServers:
+  noc-openshift:
+    uri: http://mcp-noc-openshift:8000/mcp
+  noc-kafka:
+    uri: http://mcp-noc-kafka:8000/mcp
+  noc-aap:
+    uri: http://mcp-noc-aap:8000/mcp
+  noc-slack:
+    uri: http://mcp-noc-slack:8000/mcp
+  noc-servicenow:
+    uri: http://mcp-noc-servicenow:8000/mcp

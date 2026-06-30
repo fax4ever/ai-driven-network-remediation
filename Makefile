@@ -503,6 +503,9 @@ milvus-uninstall:
 	helm uninstall $(MILVUS_RELEASE) --namespace $(NAMESPACE) --ignore-not-found
 	oc delete pvc milvus-pvc --namespace $(NAMESPACE) --ignore-not-found
 
+helm_autorag_mcp_args = \
+	$(if $(filter true,$(ENABLE_LOKISTACK)),--set-string mcpServers.noc-lokistack.uri=http://mcp-noc-lokistack:8000/mcp,)
+
 .PHONY: autorag-install
 autorag-install:
 	@test -n "$(ADNR_LLM_ID)" || { echo "ERROR: ADNR_LLM_ID is required for AutoRAG. Export it before running."; exit 1; }
@@ -513,6 +516,7 @@ autorag-install:
 		--set-string inference.model='$(ADNR_LLM_ID)' \
 		--set-string inference.url='$(ADNR_LLM_URL)' \
 		--set-string inference.apiToken='$(ADNR_LLM_TOKEN)' \
+		$(helm_autorag_mcp_args) \
 		--wait --timeout 10m \
 		$(AUTORAG_HELM_EXTRA_ARGS)
 	oc wait --for=condition=Ready pod -l app=milvus-standalone -n $(NAMESPACE) --timeout=180s
@@ -522,7 +526,7 @@ autorag-install:
 .PHONY: autorag-uninstall
 autorag-uninstall:
 	helm uninstall $(AUTORAG_RELEASE) --namespace $(NAMESPACE) --ignore-not-found
-	oc delete llamastackdistribution ogx --namespace $(NAMESPACE) --ignore-not-found
+	oc delete ogxserver ogx --namespace $(NAMESPACE) --ignore-not-found
 
 .PHONY: autorag-status
 autorag-status:
@@ -532,11 +536,11 @@ autorag-status:
 	@echo "=== etcd ==="
 	oc get pods -l app=etcd --namespace $(NAMESPACE) 2>/dev/null || echo "(none)"
 	@echo ""
-	@echo "=== LlamaStackDistribution ==="
-	oc get llamastackdistribution --namespace $(NAMESPACE) 2>/dev/null || echo "(none)"
+	@echo "=== OGXServer ==="
+	oc get ogxserver --namespace $(NAMESPACE) 2>/dev/null || echo "(none)"
 	@echo ""
-	@echo "=== Llama Stack Pod ==="
-	oc get pods -l app.kubernetes.io/managed-by=llamastack-operator --namespace $(NAMESPACE) 2>/dev/null || echo "(none)"
+	@echo "=== OGX Pod ==="
+	oc get pods -l app.kubernetes.io/instance=ogx --namespace $(NAMESPACE) 2>/dev/null || echo "(none)"
 
 # ── ServiceNow PDI Bootstrap ────────────────────────────────
 

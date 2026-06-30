@@ -13,9 +13,6 @@ echo "Using VERSION=${VERSION}"
 echo "Using NAMESPACE=${NAMESPACE}"
 echo "Using EDGE_NAMESPACE=${EDGE_NAMESPACE}"
 
-echo "Cleaning up existing deployment"
-NAMESPACE="${NAMESPACE}" make helm-uninstall
-
 echo "Building images"
 REGISTRY="${REGISTRY}" VERSION="${VERSION}" make build-all-images
 

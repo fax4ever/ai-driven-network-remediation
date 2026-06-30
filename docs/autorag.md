@@ -3,9 +3,9 @@
 AutoRAG is an OpenShift AI (3.4) feature that automatically finds the best RAG configuration
 (chunking strategy, embedding model, retrieval method) for your documents and use case.
 
-The `ogx` LlamaStackDistribution is the **single OGX deployment** used by all hub services
+The `ogx` OGXServer is the **single OGX deployment** used by all hub services
 (ingestion pipeline, chatbot, agent service). It provides LLM inference, vector storage
-(Milvus), and embeddings (sentence-transformers).
+(Milvus), embeddings (sentence-transformers), and MCP connectors for tool integration.
 
 > **Technology Preview:** AutoRAG is a TP feature in OpenShift AI 3.4.
 
@@ -33,10 +33,11 @@ The `ogx` LlamaStackDistribution is the **single OGX deployment** used by all hu
   │  Namespace: ai-driven-network-remediation-itay      │  │
   │                                                     ▼  │
   │  ┌─────────────────────┐    ┌──────────────────────┐  │
-  │  │ LlamaStackDistrib.  │    │  Milvus + etcd       │  │
+  │  │ OGXServer           │    │  Milvus + etcd       │  │
   │  │  (ogx)              │───▶│  (vector storage)    │  │
   │  │  + sentence-trans.  │    └──────────────────────┘  │
   │  │  + Granite LLM      │                              │
+  │  │  + MCP connectors   │                              │
   │  └─────────────────────┘                              │
   │           │                                            │
   │           ▼                                            │
@@ -55,7 +56,7 @@ export ADNR_LLM_ID="granite-3.3-8b-instruct"
 export ADNR_LLM_URL="https://your-vllm-endpoint/v1"
 export ADNR_LLM_TOKEN="your-token"
 
-# Deploy everything (includes Milvus + LlamaStackDistribution)
+# Deploy everything (includes Milvus + OGXServer)
 make helm-install
 
 # Or deploy AutoRAG components standalone
@@ -93,11 +94,11 @@ remediation runbooks.
 2. Navigate to **AutoRAG** section
 3. Click **Create optimization run**
 4. Configure:
-   - **OGX connection**: `http://ogx-service:8321` (the LSD deployed above)
+   - **OGX connection**: `http://ogx-service:8321` (the OGXServer deployed above)
    - **Documents**: Upload from MinIO bucket or select the runbooks folder
    - **Test data**: Upload `hub/autorag/test-data.json`
    - **Optimization metric**: "Context correctness" (recommended for retrieval-focused RAG)
-   - **Embedding model**: BAAI/bge-m3 (auto-discovered from the LSD)
+   - **Embedding model**: BAAI/bge-m3 (auto-discovered from the OGXServer)
    - **Foundation model**: Your Granite model (auto-discovered)
 5. Click **Create run**
 

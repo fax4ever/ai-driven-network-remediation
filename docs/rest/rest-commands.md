@@ -43,7 +43,7 @@ http POST http://localhost:8004/mcp \
   params:='{"name":"list_job_templates","arguments":{}}'
 ```
 
-## LlamaStack (OGX operator)
+## OGX (OGXServer operator v0.11.0)
 
 ```bash
 oc port-forward -n $NAMESPACE svc/ogx-service 8321:8321
@@ -57,12 +57,16 @@ http "http://localhost:8321/v1/models"
 http "http://localhost:8321/v1/vector_stores"
 ```
 
-```bash
-http "http://localhost:8321/v1/toolgroups"
-```
+MCP connectors (configured declaratively in config.yaml):
 
 ```bash
-http "http://localhost:8321/v1/tool-runtime/list-tools"
+http "http://localhost:8321/v1/admin/connectors"
+```
+
+Admin tools discovery:
+
+```bash
+http "http://localhost:8321/v1/admin/tools"
 ```
 
 ## Verify MCP Kube service binding
