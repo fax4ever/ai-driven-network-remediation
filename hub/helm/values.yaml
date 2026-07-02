@@ -87,7 +87,7 @@ autorag:
   llamaStack:
     name: adnr-autorag
     distributionName: rh-dev
-    distributionImage: ""
+    distributionImage: "docker.io/ogxai/distribution-starter:0.6.1"
     replicas: 1
     resources:
       requests:
