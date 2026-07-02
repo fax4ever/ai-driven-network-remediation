@@ -24,33 +24,13 @@ pgvector:
     host: pgvector
     port: "5432"
 
-llama-stack:
-  host: llamastack
+# LlamaStack instance (operator-managed, deployed by charts/autorag).
+# agent-service, chatbot-service, and ingestion-pipeline all point here so
+# ingestion writes and agent reads use the same vector store / MCP
+# tool_groups / model registration.
+llamastack:
+  host: llamastack-service
   port: "8321"
-  replicaCount: 1
-  initContainers:
-    enabled: true
-  resources: {}
-  pgvector:
-    enabled: true
-  mcp-servers:
-    noc-openshift:
-      uri: http://mcp-noc-openshift:8000/mcp
-    noc-kafka:
-      uri: http://mcp-noc-kafka:8000/mcp
-    noc-aap:
-      uri: http://mcp-noc-aap:8000/mcp
-    noc-slack:
-      uri: http://mcp-noc-slack:8000/mcp
-    noc-servicenow:
-      uri: http://mcp-noc-servicenow:8000/mcp
-  models:
-    adnr-llm:
-      id: ""
-      enabled: false
-      url: ""
-      apiToken: ""
-      maxTokens: 4096
 
 # ══════════════════════════════════════════════════════════════════════
 # Local infrastructure subcharts
@@ -82,7 +62,7 @@ minio:
 autorag:
   enabled: true
   llamaStack:
-    name: adnr-autorag
+    name: llamastack
     distributionName: rh-dev
     distributionImage: ""
     replicas: 1
@@ -280,7 +260,7 @@ edgeRbac:
 ingestionPipeline:
   replicaCount: 1
   vectorStoreName: noc_runbooks
-  llamastackHost: adnr-autorag-service
+  llamastackHost: llamastack-service
   embeddingModel: sentence-transformers/nomic-ai/nomic-embed-text-v1.5
   chunkSizeTokens: 800
   chunkOverlapTokens: 80
@@ -317,7 +297,7 @@ chatbotService:
     mcpServicenowUrl: "http://mcp-noc-servicenow:8000"
     servicenowUrl: "http://servicenow-mock:8080"
     kafkaBootstrap: "kafka:9092"
-    modelApiUrl: "http://llamastack:8321/v1/completions"
+    modelApiUrl: "http://llamastack-service:8321/v1/completions"
     modelName: "granite-4-h-tiny"
     demoTopic: "system-alerts"
     auditTopic: "incident-audit"

@@ -5,6 +5,11 @@ AutoRAG is an OpenShift AI (3.4) feature that automatically finds the best RAG c
 
 > **Technology Preview:** AutoRAG is a TP feature in OpenShift AI 3.4.
 
+> **Note:** `hub/helm/charts/autorag` deploys the hub's LlamaStack instance
+> (CR name `llamastack`, service `llamastack-service`). Despite the chart's
+> name, it's used by agent-service and chatbot-service too, not just the
+> AutoRAG optimization flow described below.
+
 ## Prerequisites
 
 | Requirement | Status |
@@ -26,20 +31,23 @@ AutoRAG is an OpenShift AI (3.4) feature that automatically finds the best RAG c
 └───────────────────────────────────────────────────────┼──┘
                                                         │
   ┌─────────────────────────────────────────────────────┼──┐
-  │  Namespace: ai-driven-network-remediation-itay      │  │
+  │  Namespace: hub                                     │  │
   │                                                     ▼  │
   │  ┌─────────────────────┐    ┌──────────────────────┐  │
   │  │ LlamaStackDistrib.  │    │  Milvus + etcd       │  │
-  │  │  (adnr-autorag)     │───▶│  (vector storage)    │  │
+  │  │  (llamastack)       │───▶│  (RAG vector store)  │  │
   │  │  + sentence-trans.  │    └──────────────────────┘  │
   │  │  + Granite LLM      │                              │
+  │  │  + MCP tool_groups  │                              │
   │  └─────────────────────┘                              │
-  │           │                                            │
-  │           ▼                                            │
-  │  ┌──────────────────┐    ┌─────────────────────────┐  │
-  │  │  pgvector         │    │  MinIO (runbooks S3)    │  │
-  │  │  (metadata store) │    └─────────────────────────┘  │
-  │  └──────────────────┘                                  │
+  │           │            ▲              ▲               │
+  │           ▼            │              │               │
+  │  ┌──────────────────┐  │   agent-service   chatbot-service
+  │  │  pgvector         │  │  (RAG retrieval +   (completions)
+  │  │  (metadata store) │  │   MCP tools)
+  │  └──────────────────┘  │
+  │           ▲             │
+  │           └── ingestion-pipeline (writes noc_runbooks)
   └────────────────────────────────────────────────────────┘
 ```
 
@@ -85,7 +93,7 @@ remediation runbooks.
 2. Navigate to **AutoRAG** section
 3. Click **Create optimization run**
 4. Configure:
-   - **Llama Stack connection**: `http://adnr-autorag:8321` (the LSD deployed above)
+   - **Llama Stack connection**: `http://llamastack-service:8321` (the LSD deployed above)
    - **Documents**: Upload from MinIO bucket or select the runbooks folder
    - **Test data**: Upload `hub/autorag/test-data.json`
    - **Optimization metric**: "Context correctness" (recommended for retrieval-focused RAG)

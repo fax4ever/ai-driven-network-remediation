@@ -45,8 +45,11 @@ http POST http://localhost:8004/mcp \
 
 ## LlamaStack (OGX)
 
+The hub runs an operator-managed LlamaStack instance (`hub/helm/charts/autorag`
+chart) used by agent-service, chatbot-service, and ingestion-pipeline alike.
+
 ```bash
-oc port-forward -n $NAMESPACE svc/llamastack 8321:8321
+oc port-forward -n $NAMESPACE svc/llamastack-service 8321:8321
 ```
 
 ```bash

@@ -31,10 +31,10 @@ runs:
 
     - name: Install Llama Stack K8s operator
       run: |
-        oc apply -k "https://github.com/ogx-ai/ogx-k8s-operator/config/default?ref=v0.9.0"
+        oc apply -k "https://github.com/ogx-ai/ogx-k8s-operator/config/default?ref=v0.11.0"
         oc wait --for=condition=Available \
-          deployment/llama-stack-k8s-operator-controller-manager \
-          -n llama-stack-k8s-operator-system --timeout=180s
+          deployment/ogx-k8s-operator-controller-manager \
+          -n ogx-k8s-operator-system --timeout=180s
       shell: bash
 
     - name: Build local images
@@ -66,6 +66,11 @@ runs:
 
     - name: Helm Install
       run: |
+        # Kind has no RHOAI "rh-dev" catalog, so we override the distribution
+        # image with a community build pinned to the operator version above
+        # (v0.11.0 -> distribution 1.1.2, per the operator's release notes).
+        # Image org is "ogxai", not "llamastack" (that org is gone; see
+        # llama-stack-k8s-operator#304).
         make helm-install REGISTRY=localhost:5001 ROUTES_ENABLED=false ENABLE_KAFKA_UI=false \
           ENABLE_SERVICENOW_MOCK=true \
           HELM_EXTRA_ARGS="\

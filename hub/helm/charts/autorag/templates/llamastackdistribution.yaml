@@ -31,11 +31,6 @@ spec:
               name: {{ .Values.postgres.passwordSecret.name }}
               key: {{ .Values.postgres.passwordSecret.key }}
 
-        - name: ENABLE_SENTENCE_TRANSFORMERS
-          value: "true"
-        - name: EMBEDDING_PROVIDER
-          value: {{ .Values.embedding.provider | quote }}
-
         - name: INFERENCE_MODEL
           valueFrom:
             secretKeyRef:
@@ -90,3 +85,9 @@ spec:
       {{- end }}
     storage:
       size: {{ .Values.llamaStack.storage.size }}
+    # Full config.yaml override (see templates/config.yaml) — this is what
+    # lets one instance serve agent-service (MCP tool_groups + inference),
+    # chatbot-service (inference), and ingestion-pipeline (vector_io +
+    # embeddings).
+    userConfig:
+      configMapName: {{ .Values.llamaStack.name }}-config

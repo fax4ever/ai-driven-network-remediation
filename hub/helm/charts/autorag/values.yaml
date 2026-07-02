@@ -1,5 +1,8 @@
 llamaStack:
-  name: adnr-autorag
+  # This is the LlamaStack instance for the whole hub (agent-service,
+  # chatbot-service, ingestion-pipeline all point here) — the CR name is
+  # generalized even though the chart lives under charts/autorag.
+  name: llamastack
   distributionName: rh-dev
   distributionImage: ""
   replicas: 1
@@ -23,6 +26,22 @@ inference:
 embedding:
   provider: sentence-transformers
   model: BAAI/bge-m3
+
+# MCP servers registered as declarative tool_groups on this instance
+# (consumed by agent-service). noc-lokistack is optional and wired in at
+# install time via `--set-string mcpServers.noc-lokistack.uri=...`
+# (see Makefile helm_lokistack_args), matching ENABLE_LOKISTACK.
+mcpServers:
+  noc-openshift:
+    uri: http://mcp-noc-openshift:8000/mcp
+  noc-kafka:
+    uri: http://mcp-noc-kafka:8000/mcp
+  noc-aap:
+    uri: http://mcp-noc-aap:8000/mcp
+  noc-slack:
+    uri: http://mcp-noc-slack:8000/mcp
+  noc-servicenow:
+    uri: http://mcp-noc-servicenow:8000/mcp
 
 postgres:
   host: pgvector

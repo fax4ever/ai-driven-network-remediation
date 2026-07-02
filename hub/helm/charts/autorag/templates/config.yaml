@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.llamaStack.name }}-config
+  labels:
+    app.kubernetes.io/name: autorag
+    app.kubernetes.io/instance: {{ .Release.Name }}
+data:
+  # Full run-config for this LlamaStack instance, injected via
+  # spec.server.userConfig.configMapName. This is a declarative override —
+  # not a runtime registration script — modeled on the schema used by the
+  # community `llama-stack` Helm chart's own generated config.yaml (verified
+  # against the vendored v0.8.6 chart). Values interpolated with ${env.*}
+  # are populated from the container env set in templates/llamastackdistribution.yaml.
+  #
+  # NOTE: this assumes the RHOAI "rh-dev" distribution image supports the
+  # same provider types as the community "starter" distribution (milvus,
+  # model-context-protocol, vllm, sentence-transformers, llama-guard,
+  # localfs, postgres storage backends). Validate against a real RHOAI
+  # 3.4.1 cluster before relying on this in production.
+  config.yaml: |
+    version: 2
+    image_name: {{ .Values.llamaStack.distributionName }}
+    # Only the APIs actually exercised by agent-service (tool-runtime/invoke,
+    # chat/completions), ingestion-pipeline (files, vector_stores), and
+    # chatbot-service (chat/completions) are enabled. No caller in this repo
+    # uses the Agents or Safety APIs, so they're intentionally left out
+    # rather than copied from the community reference config for "parity".
+    apis:
+    - files
+    - inference
+    - tool_runtime
+    - vector_io
+    providers:
+      inference:
+      - provider_id: vllm
+        provider_type: remote::vllm
+        config:
+          url: ${env.VLLM_URL}
+          api_token: ${env.VLLM_API_TOKEN}
+          max_tokens: ${env.VLLM_MAX_TOKENS}
+          tls_verify: ${env.VLLM_TLS_VERIFY}
+      - provider_id: {{ .Values.embedding.provider }}
+        provider_type: inline::{{ .Values.embedding.provider }}
+      vector_io:
+      - provider_id: milvus
+        provider_type: remote::milvus
+        config:
+          uri: ${env.MILVUS_ENDPOINT}
+          token: ${env.MILVUS_TOKEN}
+          consistency_level: ${env.MILVUS_CONSISTENCY_LEVEL}
+      files:
+      - provider_id: meta-reference-files
+        provider_type: inline::localfs
+        config:
+          storage_dir: ${env.FILES_STORAGE_DIR:=~/.llama/distributions/{{ .Values.llamaStack.distributionName }}/files}
+          metadata_store:
+            table_name: files_metadata
+            backend: sql_default
+      tool_runtime:
+      - provider_id: model-context-protocol
+        provider_type: remote::model-context-protocol
+    storage:
+      backends:
+        kv_default:
+          type: kv_postgres
+          host: ${env.POSTGRES_HOST}
+          port: ${env.POSTGRES_PORT}
+          db: ${env.POSTGRES_DB}
+          user: ${env.POSTGRES_USER}
+          password: ${env.POSTGRES_PASSWORD}
+        sql_default:
+          type: sql_postgres
+          host: ${env.POSTGRES_HOST}
+          port: ${env.POSTGRES_PORT}
+          db: ${env.POSTGRES_DB}
+          user: ${env.POSTGRES_USER}
+          password: ${env.POSTGRES_PASSWORD}
+      stores:
+        metadata:
+          namespace: registry
+          backend: kv_default
+        inference:
+          table_name: inference_store
+          backend: sql_default
+          max_write_queue_size: 10000
+          num_writers: 4
+        conversations:
+          table_name: openai_conversations
+          backend: sql_default
+    registered_resources:
+      models:
+      - metadata: {}
+        model_id: ${env.INFERENCE_MODEL}
+        provider_id: vllm
+        model_type: llm
+      vector_dbs: []
+      datasets: []
+      scoring_fns: []
+      benchmarks: []
+      tool_groups:
+      {{- range $key, $server := .Values.mcpServers }}
+      - toolgroup_id: mcp::{{ $key }}
+        provider_id: model-context-protocol
+        mcp_endpoint:
+          uri: {{ $server.uri }}
+      {{- end }}
+    server:
+      port: 8321
+    telemetry:
+      enabled: true
+    vector_stores:
+      default_provider_id: milvus
+      default_embedding_model:
+        provider_id: {{ .Values.embedding.provider }}
+        model_id: {{ .Values.embedding.model }}

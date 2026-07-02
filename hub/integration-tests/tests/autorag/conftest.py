@@ -8,7 +8,10 @@ import pytest
 from common_helpers import sync_runbooks
 from helpers import discover_sentence_transformers_model
 
-_AUTORAG_URL = os.environ.get("AUTORAG_URL", "http://localhost:8322")
+# Same LlamaStack instance as LLAMASTACK_URL (see ingestion_pipeline/conftest.py)
+# — kept as a separate env var/fixture name for backwards-compat with these
+# autorag-focused tests.
+_AUTORAG_URL = os.environ.get("AUTORAG_URL", "http://localhost:8321")
 _INGESTION_URL = os.environ.get("INGESTION_PIPELINE_URL", "http://localhost:8000")
 _E2E_CASE_LIMIT = int(os.environ.get("AUTORAG_E2E_CASE_LIMIT", "8"))
 _SERVICE_READY_TIMEOUT = int(os.environ.get("SERVICE_READY_TIMEOUT", "90"))

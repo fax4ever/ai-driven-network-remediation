@@ -12,7 +12,7 @@ def test_models_list_not_empty(ingestion_client):
 
 
 def test_sentence_transformers_model_registered(ingestion_client):
-    """Ingestion uses adnr-autorag for RAG; expect an embedding model there."""
+    """Ingestion uses the hub's LlamaStack instance for RAG; expect an embedding model there."""
     response = ingestion_client.get("/models")
     assert response.status_code == 200
     data = response.json()
@@ -26,15 +26,15 @@ def test_sentence_transformers_model_registered(ingestion_client):
 
 @pytest.mark.skipif(
     not os.environ.get("GITHUB_ACTIONS"),
-    reason="adnr-llm model only provisioned in CI",
+    reason="ADNR LLM model only provisioned in CI",
 )
 def test_adnr_llm_model_registered(llamastack_client):
-    """Hub llamastack still serves the foundation LLM for chatbot/MCP."""
+    """The hub's LlamaStack instance serves the foundation LLM for agent-service/chatbot-service."""
     response = llamastack_client.get("/v1/models")
     assert response.status_code == 200
     data = response.json()
     models = data.get("data", data.get("models", data))
-    assert any(model.get("id", "").startswith("adnr-llm/") for model in models)
+    assert any(model.get("id", "").startswith("vllm/") for model in models)
 
 
 def test_vector_store_endpoint_returns_summary(ingestion_client):

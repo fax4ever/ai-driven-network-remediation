@@ -32,7 +32,7 @@ spec:
           command: ["sh", "-c"]
           args:
             - |
-              until curl -sf http://{{ .Values.ingestionPipeline.llamastackHost }}:{{ index .Values "llama-stack" "port" }}/v1/models; do
+              until curl -sf http://{{ .Values.ingestionPipeline.llamastackHost }}:{{ .Values.llamastack.port }}/v1/models; do
                 echo "Waiting for AutoRAG LlamaStack..."
                 sleep 5
               done
@@ -48,7 +48,7 @@ spec:
             - name: LLAMASTACK_HOST
               value: {{ .Values.ingestionPipeline.llamastackHost | quote }}
             - name: LLAMASTACK_PORT
-              value: {{ index .Values "llama-stack" "port" | quote }}
+              value: {{ .Values.llamastack.port | quote }}
             - name: VECTOR_STORE_NAME
               value: {{ .Values.ingestionPipeline.vectorStoreName | quote }}
             - name: EMBEDDING_MODEL

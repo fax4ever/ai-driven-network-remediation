@@ -40,7 +40,7 @@ tickets and notifies teams.
 |------------------------|------------------------------|-------------------------------|
 |Real-time log streaming |Red Hat Streams for Kafka 3.1 |< 1s edge → hub                |
 |AI log analysis         |IBM Granite 4.0 + RHOAI 3.3   |< 5s root cause analysis       |
-|RAG-grounded decisions  |LlamaStack + pgvector         |Runbook-based remediation      |
+|RAG-grounded decisions  |LlamaStack (operator) + Milvus |Runbook-based remediation      |
 |Automated remediation   |AAP 2.5 + Event-Driven Ansible|< 30s MTTR                     |
 |Multi-cluster management|ACM 2.15                      |Hub controls edge fleet        |
 |Full observability      |Langfuse 3.x                  |Every AI decision traced       |
@@ -93,7 +93,8 @@ The result: **< 30 second MTTR** for known failure patterns, powered by Granite
 **Data & Observability:**
 
 - Red Hat Streams for Apache Kafka 3.1 — Event streaming
-- PostgreSQL + pgvector — Vector embeddings for RAG
+- Milvus — Vector embeddings for RAG (via the operator-managed LlamaStack instance)
+- PostgreSQL + pgvector — LangGraph checkpoints & LlamaStack internal state
 - Langfuse 3.x — LLM observability & tracing
 - OpenShift Logging — Log aggregation
 
@@ -228,7 +229,7 @@ See [Langfuse Deployment Guide](docs/langfuse-deploy.md) for details.
    └─ Raw log event arrives
    
 2. CONTEXT (RAG)
-   └─ pgvector retrieves relevant runbooks
+   └─ LlamaStack + Milvus retrieves relevant runbooks
    
 3. ANALYZE (Granite 4.0 + LangGraph)
    └─ RootCauseAnalysis struct (xgrammar enforced)
@@ -249,7 +250,7 @@ See [Langfuse Deployment Guide](docs/langfuse-deploy.md) for details.
 ### Data Persistence
 
 - **Incident state** → PostgreSQL (LangGraph checkpoint)
-- **Runbooks** → MinIO object storage + PostgreSQL/pgvector (RAG)
+- **Runbooks** → MinIO object storage + Milvus (RAG, via LlamaStack)
 - **Traces** → Langfuse (observability)
 - **Playbook definitions** → AAP (Ansible)
 - **Logs** → Kafka (event stream)

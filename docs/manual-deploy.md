@@ -8,7 +8,10 @@ $VERSION default `0.1.0`: Versions for all container images
 
 `make helm-install` and `make integration-tests` require the ADNR-backed Llama Stack model to be configured. Set:
 
-- `$ADNR_LLM_ID`: model identifier registered in Llama Stack
+- `$ADNR_LLM_ID`: model identifier registered on the hub's LlamaStack instance
+  (`hub/helm/charts/autorag`, CR name `llamastack`). agent-service and
+  chatbot-service are both configured to use this same model_id, so there's
+  only one place to update it.
 - `$ADNR_LLM_URL`: remote OpenAI-compatible or vLLM endpoint
 - `$ADNR_LLM_TOKEN`: bearer token for that endpoint
 
