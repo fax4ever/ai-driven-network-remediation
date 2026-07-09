@@ -85,6 +85,26 @@ jobs:
       - name: Run integration tests
         run: make integration-tests
 
+      - name: Collect ingestion-pipeline diagnostics
+        if: failure()
+        run: |
+          echo "=== Ingestion-pipeline pod status ==="
+          oc get pods -l app.kubernetes.io/component=ingestion-pipeline -n hub -o wide
+          echo ""
+          echo "=== Ingestion-pipeline describe (events + status) ==="
+          oc describe pod -l app.kubernetes.io/component=ingestion-pipeline -n hub | tail -40
+          echo ""
+          echo "=== Ingestion-pipeline logs (current) ==="
+          oc logs -l app.kubernetes.io/component=ingestion-pipeline -n hub --tail=80 2>/dev/null || echo "No logs"
+          echo ""
+          echo "=== Ingestion-pipeline previous logs (if crashed) ==="
+          oc logs -l app.kubernetes.io/component=ingestion-pipeline -n hub --previous --tail=80 2>/dev/null || echo "No previous logs"
+          echo ""
+          echo "=== LlamaStack service endpoints ==="
+          oc get endpoints -n hub | grep -i llama || echo "No llama endpoints"
+          oc get svc -n hub | grep -i llama || echo "No llama services"
+        shell: bash
+
       - name: Collect Kafka diagnostics
         if: failure()
         run: |

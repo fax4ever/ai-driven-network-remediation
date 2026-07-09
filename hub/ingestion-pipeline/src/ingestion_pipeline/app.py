@@ -1,3 +1,7 @@
+import logging
+import os
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
@@ -11,10 +15,78 @@ from ingestion_pipeline.clients.llamastack import (
 from ingestion_pipeline.clients.minio import MinioDocumentClient
 from ingestion_pipeline.config import settings
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
+
+_AUTO_INGEST = os.environ.get("AUTO_INGEST_ON_STARTUP", "true").lower() == "true"
+
+
+def _auto_ingest() -> None:
+    """Sync packaged runbooks to MinIO and ingest into the vector store."""
+    if not settings.minio_is_configured:
+        logger.warning("MinIO not configured — skipping auto-ingest")
+        return
+    if not settings.vector_store_name:
+        logger.warning("VECTOR_STORE_NAME not set — skipping auto-ingest")
+        return
+
+    minio_client = MinioDocumentClient(
+        endpoint=settings.minio_endpoint,
+        access_key=settings.minio_access_key,
+        secret_key=settings.minio_secret_key,
+        bucket=settings.minio_bucket,
+        secure=settings.minio_secure,
+    )
+    sync_result = _sync_packaged_runbooks_to_minio(minio_client)
+    logger.info(
+        "Runbook sync complete: uploaded=%d skipped=%d",
+        sync_result["uploaded_count"],
+        sync_result["skipped_count"],
+    )
+
+    vector_client = LlamaStackVectorStoreClient(
+        base_url=settings.llamastack_base_url,
+        vector_store_name=settings.vector_store_name,
+        embedding_model=settings.embedding_model,
+        chunk_size_tokens=settings.chunk_size_tokens,
+        chunk_overlap_tokens=settings.chunk_overlap_tokens,
+    )
+    vector_client.ensure_vector_store()
+
+    objects = minio_client.load_prefix_text_objects(settings.minio_runbook_prefix)
+    count = 0
+    for obj in objects:
+        vector_client.ingest_text(
+            filename=Path(obj.object_name).name,
+            content=obj.content,
+            attributes={"source_type": "runbook", "source_name": obj.object_name},
+        )
+        count += 1
+    logger.info("Auto-ingest complete: %d runbooks ingested into '%s'", count, settings.vector_store_name)
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncGenerator[None, None]:
+    if _AUTO_INGEST:
+        import threading
+
+        def _run_ingest():
+            try:
+                _auto_ingest()
+            except Exception:
+                logger.exception("Auto-ingest failed — retry via POST /runbooks/ingest")
+
+        thread = threading.Thread(target=_run_ingest, daemon=True, name="auto-ingest")
+        thread.start()
+        logger.info("Auto-ingest started in background thread")
+    yield
+
+
 app = FastAPI(
     title="Ingestion Pipeline",
     description="Syncs packaged runbooks to MinIO and ingests them into a Llama Stack vector store",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
 

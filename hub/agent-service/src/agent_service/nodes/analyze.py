@@ -28,6 +28,10 @@ Analyze the provided log event and any retrieved runbook context, then produce a
 Valid failure_type values: {_FAILURE_TYPES}
 Valid estimated_severity values: critical, high, medium, low
 
+IMPORTANT: recommended_actions must contain SHORT executable remediation names, not diagnostic commands.
+Use action names like: "restart nginx service", "scale up workers", "clear disk space", "fix configuration".
+Do NOT put shell commands (oc logs, kubectl describe, etc.) in recommended_actions — those are diagnostic, not remediation.
+
 Respond ONLY with valid JSON matching the provided schema."""
 
 _MAX_CONTEXT_CHARS = 5000

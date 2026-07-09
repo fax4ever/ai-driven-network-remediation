@@ -55,7 +55,10 @@ export function BusinessImpact({ impact }) {
           <p className="impact-metric">
             {data.modelConfidenceAvg === null
               ? "n/a"
-              : `${(Number(data.modelConfidenceAvg) * 100).toFixed(1)}%`}
+              : `${(Number(data.modelConfidenceAvg) <= 1
+                  ? Number(data.modelConfidenceAvg) * 100
+                  : Number(data.modelConfidenceAvg)
+                ).toFixed(1)}%`}
           </p>
         </article>
       </div>

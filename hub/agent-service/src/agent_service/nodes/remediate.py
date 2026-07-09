@@ -11,6 +11,40 @@ from agent_service.config import (
 from agent_service.models import GraphConfig, RemediationResult
 from agent_service.utils import invoke_tool as _invoke_tool
 
+_TEMPLATE_KEYWORDS: dict[str, str] = {
+    "nginx": "restart-nginx",
+    "restart": "restart-nginx",
+    "configuration": "restart-nginx",
+    "crashloop": "restart-nginx",
+    "config": "restart-nginx",
+    "service": "restart-nginx",
+    "scale": "scale-up-workers",
+    "replica": "scale-up-workers",
+    "oom": "scale-up-workers",
+    "memory": "scale-up-workers",
+    "disk": "clear-disk-space",
+    "storage": "clear-disk-space",
+}
+
+_FAILURE_TYPE_DEFAULTS: dict[str, str] = {
+    "CrashLoopBackOff": "restart-nginx",
+    "ConfigError": "restart-nginx",
+    "OOMKilled": "scale-up-workers",
+    "StorageFull": "clear-disk-space",
+    "NetworkTimeout": "restart-nginx",
+}
+
+
+def _resolve_template(action: str, failure_type: str | None = None) -> str:
+    """Map a natural-language recommendation to the closest AAP job template."""
+    lower = action.lower()
+    for keyword, template in _TEMPLATE_KEYWORDS.items():
+        if keyword in lower:
+            return template
+    if failure_type and failure_type in _FAILURE_TYPE_DEFAULTS:
+        return _FAILURE_TYPE_DEFAULTS[failure_type]
+    return action
+
 
 async def _launch_job(template: str, log_event) -> dict:
     """Launch an AAP job template with context from the log event."""
@@ -79,8 +113,8 @@ def make_remediate_node(config: GraphConfig):
         logger.info("Remediate node invoked")
         rca = state.root_cause_analysis
 
-        # RCA recommended_actions[0] maps to an AAP job template name
-        template = rca.recommended_actions[0] if rca.recommended_actions else None
+        raw_action = rca.recommended_actions[0] if rca.recommended_actions else None
+        template = _resolve_template(raw_action, rca.failure_type) if raw_action else None
         if not template:
             logger.warning("No recommended actions in RCA")
             return {

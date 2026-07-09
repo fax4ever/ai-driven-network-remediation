@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 from typing import Optional
@@ -6,6 +7,19 @@ from typing import Optional
 from fastapi import FastAPI, Request
 from loguru import logger
 from pydantic import BaseModel
+
+
+class _ProbeFilter(logging.Filter):
+    """Suppress noisy health/ready probe access logs."""
+
+    _SUPPRESSED = ("/health", "/ready")
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        msg = record.getMessage()
+        return not any(p in msg for p in self._SUPPRESSED)
+
+
+logging.getLogger("uvicorn.access").addFilter(_ProbeFilter())
 
 from agent_service.config import (
     GRAPH_INVOKE_TIMEOUT_SECONDS,

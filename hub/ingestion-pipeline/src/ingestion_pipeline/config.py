@@ -29,7 +29,7 @@ class Settings:
             llamastack_host=os.environ.get("LLAMASTACK_HOST", "llamastack-service"),
             llamastack_port=int(os.environ.get("LLAMASTACK_PORT", "8321")),
             vector_store_name=os.environ.get("VECTOR_STORE_NAME", ""),
-            embedding_model=os.environ.get("EMBEDDING_MODEL", "BAAI/bge-m3"),
+            embedding_model=os.environ.get("EMBEDDING_MODEL", "sentence-transformers/nomic-ai/nomic-embed-text-v1.5"),
             chunk_size_tokens=int(os.environ.get("CHUNK_SIZE_TOKENS", "800")),
             chunk_overlap_tokens=int(os.environ.get("CHUNK_OVERLAP_TOKENS", "80")),
             runbooks_dir=Path(os.environ.get("RUNBOOKS_DIR", "/app/runbooks")),
