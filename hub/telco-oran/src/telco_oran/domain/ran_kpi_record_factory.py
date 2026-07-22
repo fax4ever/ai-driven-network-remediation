@@ -1,4 +1,4 @@
-import random
+import random as random_module
 from datetime import datetime
 
 from telco_oran.domain.cell import Cell
@@ -34,6 +34,9 @@ USAGE_PATTERNS: dict[str, dict[str, dict[str, tuple[float, float]]]] = {
 class RanKpiRecordFactory:
     """Factory that generates RAN KPI measurements for a given cell."""
 
+    def __init__(self, seed: int | None = None) -> None:
+        self._rng = random_module.Random(seed)
+
     def create_for_cell(self, cell: Cell) -> list[RanKpiRecord]:
         current_time = datetime.now()
         is_weekend = current_time.strftime("%A") in ("Saturday", "Sunday")
@@ -45,7 +48,7 @@ class RanKpiRecordFactory:
 
         records = []
         for band in cell.bands:
-            ues_usage = int(random.uniform(*usage_range) * cell.max_capacity)
+            ues_usage = int(self._rng.uniform(*usage_range) * cell.max_capacity)
 
             record = RanKpiRecord(
                 cell=cell,
@@ -53,11 +56,11 @@ class RanKpiRecordFactory:
                 band=band,
                 frequency=BAND_FREQUENCY_MAP.get(band, "Unknown"),
                 ues_usage=ues_usage,
-                rsrp=round(random.uniform(-120, -80), 2),
-                rsrq=round(random.uniform(-20, -3), 2),
-                sinr=round(random.uniform(0, 30), 2),
-                throughput_mbps=round(random.uniform(10, 150), 2),
-                latency_ms=round(random.uniform(10, 100), 2),
+                rsrp=round(self._rng.uniform(-120, -80), 2),
+                rsrq=round(self._rng.uniform(-20, -3), 2),
+                sinr=round(self._rng.uniform(0, 30), 2),
+                throughput_mbps=round(self._rng.uniform(10, 150), 2),
+                latency_ms=round(self._rng.uniform(10, 100), 2),
             )
             records.append(record)
 
