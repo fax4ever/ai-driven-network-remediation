@@ -185,6 +185,8 @@ For hub-spoke mode, admin access is also required on each edge cluster.
 
 ## Tags
 
+
+
 - **Title:** Automate Edge Network Remediation with AI
 - **Description:** Detect, diagnose, and remediate failures across distributed edge clusters using AI-driven root cause analysis and automated playbooks.
 - **Industry:** Telecommunications
