@@ -425,6 +425,7 @@ unit-tests:
 	cd hub/mcp-servers/mcp-kafka && uv sync --group dev && uv run pytest
 	cd hub/mcp-servers/mcp-servicenow && uv sync --group dev && SERVICENOW_API_KEY=test uv run pytest
 	cd hub/infra/servicenow-mock && uv sync --group dev && uv run pytest
+	cd hub/telco-oran && uv sync --group dev && uv run pytest
 
 .PHONY: integration-tests
 integration-tests:
