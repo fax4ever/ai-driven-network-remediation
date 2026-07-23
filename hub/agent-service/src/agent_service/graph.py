@@ -13,6 +13,7 @@ from agent_service.nodes import (
     normalize_node,
     notify_node,
     rag_retrieval_node,
+    servicenow_close_node,
 )
 from agent_service.nodes.decide import make_decide_node
 
@@ -23,6 +24,13 @@ def _route_after_decide(state: IncidentState) -> str:
 
 def _route_after_act(state: IncidentState) -> str:
     return "decide" if state.should_retry else "notify"
+
+
+def _route_after_lightspeed(state: IncidentState) -> str:
+    result = state.remediation_result
+    if result and result.success:
+        return "servicenow_close"
+    return "escalate"
 
 
 def build_graph(config: Optional[GraphConfig] = None):
@@ -38,6 +46,7 @@ def build_graph(config: Optional[GraphConfig] = None):
     graph.add_node("remediate", make_remediate_node(config))
     graph.add_node("lightspeed", lightspeed_node)
     graph.add_node("escalate", escalate_node)
+    graph.add_node("servicenow_close", servicenow_close_node)
     graph.add_node("notify", notify_node)
     graph.add_node("audit", audit_node)
 
@@ -53,10 +62,15 @@ def build_graph(config: Optional[GraphConfig] = None):
     graph.add_conditional_edges(
         "remediate",
         _route_after_act,
-        {"decide": "decide", "notify": "notify"},
+        {"decide": "decide", "notify": "servicenow_close"},
     )
-    graph.add_edge("lightspeed", "notify")
+    graph.add_conditional_edges(
+        "lightspeed",
+        _route_after_lightspeed,
+        {"servicenow_close": "servicenow_close", "escalate": "escalate"},
+    )
     graph.add_edge("escalate", "notify")
+    graph.add_edge("servicenow_close", "notify")
     graph.add_edge("notify", "audit")
     graph.add_edge("audit", END)
 
