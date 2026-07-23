@@ -1,7 +1,7 @@
 [project]
 name = "telco-oran"
 version = "0.1.0"
-description = "Add your description here"
+description = "ORAN/Telco domain model with RAN KPI simulation and anomaly detection"
 readme = "README.md"
 authors = [
     { name = "Fabio Massimo Ercoli", email = "fabiomassimo.ercoli@gmail.com" }
