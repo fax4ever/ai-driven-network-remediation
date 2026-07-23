@@ -11,6 +11,9 @@ BAND_FREQUENCY_MAP: dict[str, str] = {
     "Band 66": "1700-2100",
 }
 
+DAY_START_HOUR = 6
+DAY_END_HOUR = 18
+
 USAGE_PATTERNS: dict[str, dict[str, dict[str, tuple[float, float]]]] = {
     "industrial": {
         "weekdays": {"day": (0.7, 0.9), "night": (0.1, 0.3)},
@@ -25,7 +28,7 @@ USAGE_PATTERNS: dict[str, dict[str, dict[str, tuple[float, float]]]] = {
         "weekends": {"day": (0.1, 0.2), "night": (0.1, 0.2)},
     },
     "residential": {
-        "weekdays": {"day": (0.3, 0.2), "night": (0.7, 0.9)},
+        "weekdays": {"day": (0.2, 0.3), "night": (0.7, 0.9)},
         "weekends": {"day": (0.4, 0.6), "night": (0.5, 0.8)},
     },
 }
@@ -40,7 +43,7 @@ class RanKpiRecordFactory:
     def create_for_cell(self, cell: Cell) -> list[RanKpiRecord]:
         current_time = datetime.now()
         is_weekend = current_time.strftime("%A") in ("Saturday", "Sunday")
-        is_day = 6 <= current_time.hour < 18
+        is_day = DAY_START_HOUR <= current_time.hour < DAY_END_HOUR
 
         time_key = "weekends" if is_weekend else "weekdays"
         period_key = "day" if is_day else "night"

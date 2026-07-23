@@ -35,17 +35,17 @@ class AnomalyDetector:
             return
 
         utilization_pct = (record.ues_usage / max_capacity) * 100
-        if utilization_pct > 95.0:
+        if utilization_pct > HighPrbUtilization.threshold:
             anomalies.append(
                 HighPrbUtilization(record=record, utilization_pct=utilization_pct)
             )
 
     def _check_low_rsrp(self, record, anomalies):
-        if record.rsrp < -110.0:
+        if record.rsrp < LowRsrp.threshold:
             anomalies.append(LowRsrp(record=record, rsrp=record.rsrp))
 
     def _check_sinr_degradation(self, record, anomalies):
-        if record.sinr < 0.0:
+        if record.sinr < SinrDegradation.threshold:
             anomalies.append(SinrDegradation(record=record, sinr=record.sinr))
 
     def _check_cell_outage(self, record, anomalies):
@@ -71,7 +71,8 @@ class AnomalyDetector:
             return
 
         avg_prior = sum(r.throughput_mbps for r in history[-3:]) / 3
-        if avg_prior > 0 and record.throughput_mbps < 0.5 * avg_prior:
+        threshold_fraction = ThroughputDrop.threshold_pct / 100
+        if avg_prior > 0 and record.throughput_mbps < threshold_fraction * avg_prior:
             anomalies.append(
                 ThroughputDrop(
                     record=record,
@@ -86,7 +87,8 @@ class AnomalyDetector:
             return
 
         avg_prior = sum(r.ues_usage for r in history[-3:]) / 3
-        if avg_prior > 0 and abs(record.ues_usage - avg_prior) / avg_prior > 0.5:
+        threshold_fraction = UesSpikeOrDrop.threshold_pct / 100
+        if avg_prior > 0 and abs(record.ues_usage - avg_prior) / avg_prior > threshold_fraction:
             anomalies.append(
                 UesSpikeOrDrop(
                     record=record,
