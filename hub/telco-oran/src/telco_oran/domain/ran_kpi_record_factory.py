@@ -1,5 +1,5 @@
 import random as random_module
-from datetime import datetime
+from datetime import datetime, timezone
 
 from telco_oran.domain.cell import Cell
 from telco_oran.domain.ran_kpi_record import RanKpiRecord
@@ -41,7 +41,7 @@ class RanKpiRecordFactory:
         self._rng = random_module.Random(seed)
 
     def create_for_cell(self, cell: Cell) -> list[RanKpiRecord]:
-        current_time = datetime.now()
+        current_time = datetime.now(timezone.utc)
         is_weekend = current_time.strftime("%A") in ("Saturday", "Sunday")
         is_day = DAY_START_HOUR <= current_time.hour < DAY_END_HOUR
 

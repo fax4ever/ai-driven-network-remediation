@@ -63,7 +63,8 @@ class SimulationFactory:
                 area_type=self._rng.choice(AREA_TYPES),
                 city=self._rng.choice(CITIES),
                 adjacent_cells=self._rng.sample(
-                    range(num_cells), k=min(self._rng.randint(0, 3), num_cells)
+                    [i for i in range(num_cells) if i != cell_id],
+                    k=min(self._rng.randint(0, 3), max(num_cells - 1, 0)),
                 ),
             )
             cells.append(cell)
