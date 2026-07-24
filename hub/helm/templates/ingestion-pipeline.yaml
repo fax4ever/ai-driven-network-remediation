@@ -68,6 +68,8 @@ spec:
               value: {{ index .Values "llama-stack" "port" | quote }}
             - name: VECTOR_STORE_NAME
               value: {{ .Values.ingestionPipeline.vectorStoreName | quote }}
+            - name: TELCO_VECTOR_STORE_NAME
+              value: {{ .Values.ingestionPipeline.telcoVectorStoreName | quote }}
             - name: EMBEDDING_MODEL
               value: {{ .Values.ingestionPipeline.embeddingModel | quote }}
             - name: CHUNK_SIZE_TOKENS
@@ -92,6 +94,8 @@ spec:
               value: {{ .Values.ingestionPipeline.minio.secure | quote }}
             - name: MINIO_RUNBOOK_PREFIX
               value: {{ .Values.ingestionPipeline.minio.runbookPrefix | quote }}
+            - name: MINIO_TELCO_DOCS_PREFIX
+              value: {{ .Values.ingestionPipeline.minio.telcoDocsPrefix | quote }}
           livenessProbe:
             {{- toYaml .Values.ingestionPipeline.livenessProbe | nindent 12 }}
           readinessProbe:
