@@ -4,42 +4,51 @@ ServiceNow Mock API
 Lightweight FastAPI service simulating the ServiceNow REST Table API.
 Stores incidents in memory (lost on restart -- CI/demo only).
 
-Endpoints:
-    POST   /api/now/table/incident           -> create incident
-    PATCH  /api/now/table/incident/{number}  -> update incident
-    GET    /api/now/table/incident/{number}  -> get incident
-    GET    /api/now/table/incident           -> list incidents
-    GET    /api/now/table/sys_user           -> lookup user
-    POST   /api/now/table/sys_user           -> create user
+Uses the same REST contract as a real ServiceNow instance:
+    POST   /api/now/table/incident            -> create incident (flat JSON)
+    PATCH  /api/now/table/incident/{sys_id}   -> update incident (flat JSON)
+    GET    /api/now/table/incident             -> list/query incidents (sysparm_query)
+    GET    /api/now/table/sys_user             -> lookup user
+    POST   /api/now/table/sys_user             -> create user
 
 Authentication:
-    Header: X-API-Key (validated against API_KEY env var)
+    HTTP Basic Auth (validated against SERVICENOW_USERNAME / SERVICENOW_PASSWORD env vars)
 """
 
 from __future__ import annotations
 
+import base64
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 import uvicorn
-from fastapi import Depends, FastAPI, Header, HTTPException
-from pydantic import BaseModel
+from fastapi import Depends, FastAPI, HTTPException, Request
 
-app = FastAPI(title="ServiceNow Mock", version="1.0.0")
+app = FastAPI(title="ServiceNow Mock", version="2.0.0")
 
-API_KEY = os.getenv("API_KEY", "demo-api-key-2026")
+MOCK_USERNAME = os.getenv("SERVICENOW_USERNAME", "admin")
+MOCK_PASSWORD = os.getenv("SERVICENOW_PASSWORD", "admin")
 
 incidents: dict[str, dict[str, Any]] = {}
+_incidents_by_number: dict[str, str] = {}
 users: dict[str, dict[str, Any]] = {}
 _incident_counter = 1
 
 
-def _verify_api_key(x_api_key: str = Header(default="")):
-    if x_api_key != API_KEY:
-        raise HTTPException(status_code=401, detail="Invalid API key")
-    return x_api_key
+def _verify_basic_auth(request: Request):
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Basic "):
+        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
+    try:
+        decoded = base64.b64decode(auth[6:]).decode("utf-8")
+        username, password = decoded.split(":", 1)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Malformed Basic Auth header")
+    if username != MOCK_USERNAME or password != MOCK_PASSWORD:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    return username
 
 
 def _now() -> str:
@@ -53,36 +62,23 @@ def _make_number() -> str:
     return number
 
 
-class IncidentRecord(BaseModel):
-    short_description: str = ""
-    description: str = ""
-    priority: str = "3"
-    state: str = "1"
-    caller_id: str = ""
-    assignment_group: str = "NOC-Team"
-    category: str = "Infrastructure"
-    subcategory: str = "OpenShift"
-    urgency: str = "3"
-    impact: str = "3"
-    work_notes: str = ""
-    close_code: str = ""
-    close_notes: str = ""
-    resolved_by: str = ""
-
-
-class IncidentCreateBody(BaseModel):
-    record: IncidentRecord
-
-
-class IncidentUpdateBody(BaseModel):
-    record: dict[str, Any]
+def _parse_sysparm_query(query: str) -> dict[str, str]:
+    """Parse simple key=value pairs from a sysparm_query string."""
+    params: dict[str, str] = {}
+    if not query:
+        return params
+    for part in query.split("^"):
+        if "=" in part:
+            key, value = part.split("=", 1)
+            params[key.strip()] = value.strip()
+    return params
 
 
 # ─── Incident endpoints ──────────────────────────────────────────────────────
 
 
 @app.post("/api/now/table/incident", status_code=201)
-async def create_incident(body: IncidentCreateBody, _: str = Depends(_verify_api_key)):
+async def create_incident(body: dict[str, Any], _: str = Depends(_verify_basic_auth)):
     now = _now()
     sys_id = uuid.uuid4().hex
     number = _make_number()
@@ -90,69 +86,63 @@ async def create_incident(body: IncidentCreateBody, _: str = Depends(_verify_api
     incident: dict[str, Any] = {
         "sys_id": sys_id,
         "number": number,
-        "short_description": body.record.short_description,
-        "description": body.record.description,
-        "priority": body.record.priority,
-        "state": body.record.state,
-        "caller_id": body.record.caller_id,
-        "assignment_group": body.record.assignment_group,
-        "category": body.record.category,
-        "subcategory": body.record.subcategory,
-        "urgency": body.record.urgency,
-        "impact": body.record.impact,
+        "short_description": body.get("short_description", ""),
+        "description": body.get("description", ""),
+        "priority": body.get("priority", "3"),
+        "state": body.get("state", "1"),
+        "caller_id": body.get("caller_id", ""),
+        "assignment_group": body.get("assignment_group", "NOC-Team"),
+        "category": body.get("category", "Infrastructure"),
+        "subcategory": body.get("subcategory", "OpenShift"),
+        "urgency": body.get("urgency", "3"),
+        "impact": body.get("impact", "3"),
         "sys_created_on": now,
         "sys_updated_on": now,
-        "work_notes": [],
+        "work_notes": "",
         "close_code": "",
         "close_notes": "",
         "resolved_by": "",
+        "resolution_code": "",
     }
-    incidents[number] = incident
-    return _wrap(incident)
+    incidents[sys_id] = incident
+    _incidents_by_number[number] = sys_id
+    return {"result": incident}
 
 
-@app.patch("/api/now/table/incident/{number}")
-async def update_incident(number: str, body: IncidentUpdateBody, _: str = Depends(_verify_api_key)):
-    if number not in incidents:
-        raise HTTPException(status_code=404, detail=f"Incident {number} not found")
+@app.patch("/api/now/table/incident/{sys_id}")
+async def update_incident(sys_id: str, body: dict[str, Any], _: str = Depends(_verify_basic_auth)):
+    if sys_id not in incidents:
+        raise HTTPException(status_code=404, detail=f"Record not found: {sys_id}")
 
-    inc = incidents[number]
-    updates = body.record.copy()
-
-    if "work_notes" in updates:
-        wn = updates.pop("work_notes")
-        if isinstance(inc["work_notes"], list):
-            inc["work_notes"].append({"timestamp": _now(), "text": wn})
-        else:
-            inc["work_notes"] = [{"timestamp": _now(), "text": wn}]
-
-    inc.update(updates)
+    inc = incidents[sys_id]
+    inc.update(body)
     inc["sys_updated_on"] = _now()
-    return _wrap(inc)
-
-
-@app.get("/api/now/table/incident/{number}")
-async def get_incident(number: str, _: str = Depends(_verify_api_key)):
-    if number not in incidents:
-        raise HTTPException(status_code=404, detail=f"Incident {number} not found")
-    return _wrap(incidents[number])
+    return {"result": inc}
 
 
 @app.get("/api/now/table/incident")
 async def list_incidents(
-    state: Optional[str] = None,
-    priority: Optional[str] = None,
-    _: str = Depends(_verify_api_key),
+    sysparm_query: str = "",
+    sysparm_limit: int = 100,
+    sysparm_fields: str = "",
+    _: str = Depends(_verify_basic_auth),
 ):
+    filters = _parse_sysparm_query(sysparm_query)
     results = list(incidents.values())
-    if state:
-        results = [i for i in results if i["state"] == state]
-    if priority:
-        results = [i for i in results if i["priority"] == priority]
-    return {"result": results, "count": len(results)}
+
+    for key, value in filters.items():
+        results = [i for i in results if str(i.get(key, "")) == value]
+
+    results = results[:sysparm_limit]
+
+    if sysparm_fields:
+        fields = [f.strip() for f in sysparm_fields.split(",")]
+        results = [{k: r[k] for k in fields if k in r} for r in results]
+
+    return {"result": results}
 
 
-# ─── User endpoints (for caller_id resolution in real mode) ──────────────────
+# ─── User endpoints ──────────────────────────────────────────────────────────
 
 
 @app.get("/api/now/table/sys_user")
@@ -160,17 +150,25 @@ async def get_user(
     sysparm_query: str = "",
     sysparm_limit: int = 10,
     sysparm_fields: str = "",
-    _: str = Depends(_verify_api_key),
+    _: str = Depends(_verify_basic_auth),
 ):
-    if "name=" in sysparm_query:
-        name = sysparm_query.split("name=", 1)[1]
-        matches = [u for u in users.values() if u["name"] == name]
-        return {"result": matches[:sysparm_limit]}
-    return {"result": list(users.values())[:sysparm_limit]}
+    filters = _parse_sysparm_query(sysparm_query)
+    results = list(users.values())
+
+    for key, value in filters.items():
+        results = [u for u in results if u.get(key, "") == value]
+
+    results = results[:sysparm_limit]
+
+    if sysparm_fields:
+        fields = [f.strip() for f in sysparm_fields.split(",")]
+        results = [{k: r[k] for k in fields if k in r} for r in results]
+
+    return {"result": results}
 
 
 @app.post("/api/now/table/sys_user", status_code=201)
-async def create_user(body: dict[str, Any], _: str = Depends(_verify_api_key)):
+async def create_user(body: dict[str, Any], _: str = Depends(_verify_basic_auth)):
     sys_id = uuid.uuid4().hex
     user = {"sys_id": sys_id, **body}
     users[sys_id] = user
@@ -183,14 +181,6 @@ async def create_user(body: dict[str, Any], _: str = Depends(_verify_api_key)):
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok", "incidents_count": len(incidents)}
-
-
-# ─── Helpers ──────────────────────────────────────────────────────────────────
-
-
-def _wrap(incident: dict) -> dict:
-    """Wrap response in the format mcp-servicenow mock mode expects."""
-    return {"record": incident}
 
 
 if __name__ == "__main__":
