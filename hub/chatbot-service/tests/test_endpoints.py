@@ -23,7 +23,7 @@ def test_summary(mock_snow, client):
     assert data["cluster"] == "hub"
     assert data["site"] == "edge-01"
     assert data["open_incidents"] == 3
-    assert data["servicenow"] == {"mode": "mock", "reachable": True}
+    assert data["servicenow"] == {"reachable": True}
     assert "timestamp" in data
 
 
