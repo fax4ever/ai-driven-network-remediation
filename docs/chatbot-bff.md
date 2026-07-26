@@ -209,7 +209,8 @@ hub/chatbot-service/src/chatbot_service/
 | `AUDIT_TOPIC` | `incident-audit` | Topic for agent audit records |
 | `MODEL_API_URL` | `http://llamastack-service:8321/v1/completions` | LLM endpoint |
 | `SERVICENOW_URL` | `http://servicenow-mock:8080` | ServiceNow instance URL |
-| `SERVICENOW_MODE` | `mock` | `mock` or `real` |
+| `SERVICENOW_USERNAME` | `admin` | ServiceNow Basic Auth username |
+| `SERVICENOW_PASSWORD` | `admin` | ServiceNow Basic Auth password |
 | `BASELINE_MANUAL_MTTR_SECONDS` | `900` | Manual MTTR baseline for cost savings calc |
 | `OPS_HOURLY_COST_USD` | `120` | Ops hourly rate for cost savings calc |
 

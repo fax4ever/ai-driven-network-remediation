@@ -227,10 +227,9 @@ class ServiceNowIncidentTester(ServiceNowClient):
 
         if passed == total:
             print("\nAll tests passed! Your ServiceNow instance is ready for " "incident management.")
-            print("\nYou can now deploy with a real ServiceNow instance:")
+            print("\nYou can now deploy with your ServiceNow instance:")
             print(
                 f"  SERVICENOW_URL={self.instance_url}\n"
-                f"  SERVICENOW_MODE=real\n"
                 f"  SERVICENOW_USERNAME={self.username}\n"
                 f"  SERVICENOW_PASSWORD=<your-password>"
             )
