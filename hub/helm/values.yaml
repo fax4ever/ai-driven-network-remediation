@@ -231,7 +231,6 @@ aapMock:
 
 servicenowMock:
   enabled: true
-  apiKey: "demo-api-key-2026"
   image:
     repository: quay.io/rh-ai-quickstart/noc-servicenow-mock
     tag: "0.1.0"
@@ -389,7 +388,6 @@ mcpSecrets:
     password: ""
   servicenow:
     create: true
-    apiKey: ""
     username: ""
     password: ""
 
@@ -507,11 +505,7 @@ mcp-servers:
         MCP_TRANSPORT: "streamable-http"
         MCP_PORT: "8000"
         SERVICENOW_URL: "http://servicenow-mock.hub.svc:8080"
-        SERVICENOW_MODE: "auto"
       envSecrets:
-        SERVICENOW_API_KEY:
-          name: noc-servicenow-secret
-          key: SERVICENOW_API_KEY
         SERVICENOW_USERNAME:
           name: noc-servicenow-secret
           key: SERVICENOW_USERNAME

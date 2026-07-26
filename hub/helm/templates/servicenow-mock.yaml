@@ -23,8 +23,16 @@ spec:
           ports:
             - containerPort: 8080
           env:
-            - name: API_KEY
-              value: {{ .Values.servicenowMock.apiKey | quote }}
+            - name: SERVICENOW_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: noc-servicenow-secret
+                  key: SERVICENOW_USERNAME
+            - name: SERVICENOW_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: noc-servicenow-secret
+                  key: SERVICENOW_PASSWORD
           readinessProbe:
             httpGet:
               path: /healthz
