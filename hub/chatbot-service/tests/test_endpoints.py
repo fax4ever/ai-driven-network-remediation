@@ -14,7 +14,7 @@ def test_health(client):
 
 @patch("chatbot_service.fetch_servicenow_incident_count", new_callable=AsyncMock)
 def test_summary(mock_snow, client):
-    mock_snow.return_value = (3, {"mode": "mock", "reachable": True})
+    mock_snow.return_value = (3, {"reachable": True})
     resp = client.get("/api/summary")
     assert resp.status_code == 200
     data = resp.json()
@@ -29,7 +29,7 @@ def test_summary(mock_snow, client):
 
 @patch("chatbot_service.fetch_servicenow_incident_count", new_callable=AsyncMock)
 def test_summary_servicenow_unreachable(mock_snow, client):
-    mock_snow.return_value = (0, {"mode": "mock", "reachable": False})
+    mock_snow.return_value = (0, {"reachable": False})
     resp = client.get("/api/summary")
     assert resp.status_code == 200
     data = resp.json()
@@ -126,7 +126,7 @@ def test_demo_trigger_kafka_failure(mock_publish, client):
 @patch("chatbot_service.fetch_servicenow_incident_count", new_callable=AsyncMock)
 @patch("chatbot_service.call_model", new_callable=AsyncMock)
 def test_chat(mock_model, mock_snow, mock_integrations, client):
-    mock_snow.return_value = (1, {"mode": "mock", "reachable": True})
+    mock_snow.return_value = (1, {"reachable": True})
     mock_integrations.return_value = {
         "_deps": {"status": "ok"},
         "total": 7,
@@ -156,7 +156,7 @@ def test_chat(mock_model, mock_snow, mock_integrations, client):
 @patch("chatbot_service.fetch_servicenow_incident_count", new_callable=AsyncMock)
 @patch("chatbot_service.call_model", new_callable=AsyncMock)
 def test_chat_model_unavailable(mock_model, mock_snow, mock_integrations, client):
-    mock_snow.return_value = (0, {"mode": "mock", "reachable": True})
+    mock_snow.return_value = (0, {"reachable": True})
     mock_integrations.return_value = {
         "_deps": {"status": "ok"},
         "total": 7,
