@@ -4,7 +4,6 @@ from unittest.mock import MagicMock, patch
 
 import httpx
 from mcp_servicenow.tools import (
-    _is_real_servicenow,
     _snow_client,
     create_incident,
     get_incident,
@@ -30,33 +29,12 @@ def _mock_response(status_code=200, json_data=None, text=""):
     return resp
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# _is_real_servicenow mode detection
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-class TestIsRealServicenow:
-    """Tests for the _is_real_servicenow helper."""
-
-    @patch("mcp_servicenow.tools.SNOW_MODE", "real")
-    def test_real_mode(self):
-        assert _is_real_servicenow() is True
-
-    @patch("mcp_servicenow.tools.SNOW_MODE", "mock")
-    def test_mock_mode(self):
-        assert _is_real_servicenow() is False
-
-    @patch("mcp_servicenow.tools.SNOW_MODE", "auto")
-    @patch("mcp_servicenow.tools.SNOW_USERNAME", "admin")
-    @patch("mcp_servicenow.tools.SNOW_PASSWORD", "secret")
-    def test_auto_mode_with_credentials(self):
-        assert _is_real_servicenow() is True
-
-    @patch("mcp_servicenow.tools.SNOW_MODE", "auto")
-    @patch("mcp_servicenow.tools.SNOW_USERNAME", "")
-    @patch("mcp_servicenow.tools.SNOW_PASSWORD", "")
-    def test_auto_mode_without_credentials(self):
-        assert _is_real_servicenow() is False
+def _make_ctx():
+    """Build a mock context-manager client."""
+    ctx = MagicMock()
+    ctx.__enter__ = MagicMock(return_value=ctx)
+    ctx.__exit__ = MagicMock(return_value=False)
+    return ctx
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -67,44 +45,33 @@ class TestIsRealServicenow:
 class TestSnowClient:
     """Tests for the _snow_client factory."""
 
-    @patch("mcp_servicenow.tools._is_real_servicenow", return_value=False)
+    @patch("mcp_servicenow.tools.SNOW_USERNAME", "admin")
+    @patch("mcp_servicenow.tools.SNOW_PASSWORD", "secret")
     @patch("mcp_servicenow.tools.httpx.Client")
-    def test_mock_mode_uses_api_key(self, mock_client_cls, _mock_real):
+    def test_always_uses_basic_auth(self, mock_client_cls):
         _snow_client()
         mock_client_cls.assert_called_once()
         kwargs = mock_client_cls.call_args.kwargs
         assert "/api/now" in kwargs["base_url"]
-        assert kwargs["auth"] is None
-        assert "X-API-Key" in kwargs["headers"]
-
-    @patch("mcp_servicenow.tools._is_real_servicenow", return_value=True)
-    @patch("mcp_servicenow.tools.SNOW_USERNAME", "admin")
-    @patch("mcp_servicenow.tools.SNOW_PASSWORD", "secret")
-    @patch("mcp_servicenow.tools.httpx.Client")
-    def test_real_mode_uses_basic_auth(self, mock_client_cls, _mock_real):
-        _snow_client()
-        mock_client_cls.assert_called_once()
-        kwargs = mock_client_cls.call_args.kwargs
         assert kwargs["auth"] == ("admin", "secret")
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# create_incident — mock mode
+# create_incident
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-@patch("mcp_servicenow.tools._is_real_servicenow", return_value=False)
 @patch("mcp_servicenow.tools._notify_slack_ticket_created")
 @patch("mcp_servicenow.tools._snow_client")
-class TestCreateIncidentMockMode:
-    """Tests for create_incident in mock mode."""
+class TestCreateIncident:
+    """Tests for create_incident."""
 
-    def test_success(self, mock_client, mock_slack, _mock_real):
-        snow_data = {"number": "INC0000001", "sys_id": "abc123"}
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.post.return_value = _mock_response(json_data={"record": snow_data})
+    def test_success_resolves_caller(self, mock_client, mock_slack):
+        caller_data = {"result": [{"sys_id": "caller-001", "name": "NOC Agent", "user_name": "noc.agent"}]}
+        snow_data = {"result": {"number": "INC0010001", "sys_id": "real-123"}}
+        ctx = _make_ctx()
+        ctx.get.return_value = _mock_response(json_data=caller_data)
+        ctx.post.return_value = _mock_response(json_data=snow_data)
         mock_client.return_value = ctx
         mock_slack.return_value = {"sent": True, "ts": "123"}
 
@@ -114,88 +81,20 @@ class TestCreateIncidentMockMode:
             priority=2,
         )
         assert result["success"] is True
-        assert result["ticket_number"] == "INC0000001"
-        assert result["sys_id"] == "abc123"
+        assert result["ticket_number"] == "INC0010001"
+        assert result["sys_id"] == "real-123"
         assert result["priority"] == 2
         assert result["slack_notification"]["sent"] is True
-
-        posted_body = ctx.post.call_args.kwargs.get("json", ctx.post.call_args[1].get("json", {}))
-        assert "record" in posted_body
-
-    def test_truncates_short_description(self, mock_client, mock_slack, _mock_real):
-        snow_data = {"number": "INC0000002", "sys_id": "def456"}
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.post.return_value = _mock_response(json_data={"record": snow_data})
-        mock_client.return_value = ctx
-        mock_slack.return_value = {"sent": False, "reason": "missing_token"}
-
-        long_desc = "x" * 200
-        result = create_incident(short_description=long_desc, description="details")
-        assert result["success"] is True
-        assert len(result["short_description"]) == 160
-
-    def test_api_error(self, mock_client, mock_slack, _mock_real):
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.post.return_value = _mock_response(status_code=500, text="Internal Server Error")
-        mock_client.return_value = ctx
-
-        result = create_incident(short_description="fail", description="x")
-        assert result["success"] is False
-        assert "500" in result["error"]
-
-    def test_connection_error(self, mock_client, mock_slack, _mock_real):
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.post.side_effect = httpx.ConnectError("Connection refused")
-        mock_client.return_value = ctx
-
-        result = create_incident(short_description="fail", description="x")
-        assert result["success"] is False
-        assert "connection error" in result["error"].lower()
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# create_incident — real mode
-# ─────────────────────────────────────────────────────────────────────────────
-
-
-@patch("mcp_servicenow.tools._is_real_servicenow", return_value=True)
-@patch("mcp_servicenow.tools._notify_slack_ticket_created")
-@patch("mcp_servicenow.tools._snow_client")
-class TestCreateIncidentRealMode:
-    """Tests for create_incident in real ServiceNow mode."""
-
-    def test_success_resolves_caller(self, mock_client, mock_slack, _mock_real):
-        caller_data = {"result": [{"sys_id": "caller-001", "name": "NOC Agent", "user_name": "noc.agent"}]}
-        snow_data = {"result": {"number": "INC0010001", "sys_id": "real-123"}}
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.get.return_value = _mock_response(json_data=caller_data)
-        ctx.post.return_value = _mock_response(json_data=snow_data)
-        mock_client.return_value = ctx
-        mock_slack.return_value = {"sent": False, "reason": "missing_token"}
-
-        result = create_incident(short_description="Real incident", description="details")
-        assert result["success"] is True
-        assert result["ticket_number"] == "INC0010001"
 
         posted_body = ctx.post.call_args.kwargs.get("json", ctx.post.call_args[1].get("json", {}))
         assert "record" not in posted_body
         assert posted_body["caller_id"] == "caller-001"
 
-    def test_creates_caller_when_not_found(self, mock_client, mock_slack, _mock_real):
+    def test_creates_caller_when_not_found(self, mock_client, mock_slack):
         empty_search = {"result": []}
         created_user = {"result": {"sys_id": "new-caller-001"}}
         snow_data = {"result": {"number": "INC0010002", "sys_id": "real-456"}}
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
+        ctx = _make_ctx()
         ctx.get.return_value = _mock_response(json_data=empty_search)
         ctx.post.side_effect = [
             _mock_response(json_data=created_user),
@@ -208,87 +107,61 @@ class TestCreateIncidentRealMode:
         assert result["success"] is True
         assert ctx.post.call_count == 2
 
+    def test_truncates_short_description(self, mock_client, mock_slack):
+        caller_data = {"result": [{"sys_id": "caller-001"}]}
+        snow_data = {"result": {"number": "INC0000002", "sys_id": "def456"}}
+        ctx = _make_ctx()
+        ctx.get.return_value = _mock_response(json_data=caller_data)
+        ctx.post.return_value = _mock_response(json_data=snow_data)
+        mock_client.return_value = ctx
+        mock_slack.return_value = {"sent": False, "reason": "missing_token"}
+
+        long_desc = "x" * 200
+        result = create_incident(short_description=long_desc, description="details")
+        assert result["success"] is True
+        assert len(result["short_description"]) == 160
+
+    def test_api_error(self, mock_client, mock_slack):
+        caller_data = {"result": [{"sys_id": "caller-001"}]}
+        ctx = _make_ctx()
+        ctx.get.return_value = _mock_response(json_data=caller_data)
+        ctx.post.return_value = _mock_response(status_code=500, text="Internal Server Error")
+        mock_client.return_value = ctx
+
+        result = create_incident(short_description="fail", description="x")
+        assert result["success"] is False
+        assert "500" in result["error"]
+
+    def test_connection_error(self, mock_client, mock_slack):
+        ctx = _make_ctx()
+        ctx.get.side_effect = httpx.ConnectError("Connection refused")
+        mock_client.return_value = ctx
+
+        result = create_incident(short_description="fail", description="x")
+        assert result["success"] is False
+        assert "connection error" in result["error"].lower()
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # update_incident
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-@patch("mcp_servicenow.tools._is_real_servicenow", return_value=False)
 @patch("mcp_servicenow.tools._snow_client")
-class TestUpdateIncidentMockMode:
-    """Tests for update_incident in mock mode."""
+class TestUpdateIncident:
+    """Tests for update_incident."""
 
-    def test_success(self, mock_client, _mock_real):
-        incident_record = {"sys_id": "abc123", "number": "INC0000001"}
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.get.return_value = _mock_response(json_data={"record": incident_record})
-        ctx.patch.return_value = _mock_response(json_data={"record": incident_record})
-        mock_client.return_value = ctx
-
-        result = update_incident(ticket_number="INC0000001", work_notes="Investigating")
-        assert result["success"] is True
-        assert result["ticket_number"] == "INC0000001"
-        assert result["updated_state"] == "unchanged"
-
-    def test_with_state_change(self, mock_client, _mock_real):
-        incident_record = {"sys_id": "abc123", "number": "INC0000001"}
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.get.return_value = _mock_response(json_data={"record": incident_record})
-        ctx.patch.return_value = _mock_response(json_data={"record": incident_record})
-        mock_client.return_value = ctx
-
-        result = update_incident(ticket_number="INC0000001", work_notes="Starting work", state="in_progress")
-        assert result["success"] is True
-        assert result["updated_state"] == "in_progress"
-
-        patched_body = ctx.patch.call_args.kwargs.get("json", ctx.patch.call_args[1].get("json", {}))
-        assert "record" in patched_body
-        assert patched_body["record"]["state"] == "2"
-
-    def test_api_error(self, mock_client, _mock_real):
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.get.return_value = _mock_response(status_code=404, text="Not Found")
-        mock_client.return_value = ctx
-
-        result = update_incident(ticket_number="INC9999999", work_notes="note")
-        assert result["success"] is False
-        assert "404" in result["error"]
-
-    def test_connection_error(self, mock_client, _mock_real):
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.get.side_effect = httpx.ConnectError("Connection refused")
-        mock_client.return_value = ctx
-
-        result = update_incident(ticket_number="INC0000001", work_notes="note")
-        assert result["success"] is False
-        assert "connection error" in result["error"].lower()
-
-
-@patch("mcp_servicenow.tools._is_real_servicenow", return_value=True)
-@patch("mcp_servicenow.tools._snow_client")
-class TestUpdateIncidentRealMode:
-    """Tests for update_incident in real ServiceNow mode."""
-
-    def test_success_uses_sys_id(self, mock_client, _mock_real):
+    def test_success_uses_sys_id(self, mock_client):
         lookup_data = {"result": [{"sys_id": "real-sys-001", "number": "INC0010001"}]}
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
+        ctx = _make_ctx()
         ctx.get.return_value = _mock_response(json_data=lookup_data)
         ctx.patch.return_value = _mock_response(json_data={"result": {}})
         mock_client.return_value = ctx
 
         result = update_incident(ticket_number="INC0010001", work_notes="fixed")
         assert result["success"] is True
+        assert result["ticket_number"] == "INC0010001"
+        assert result["updated_state"] == "unchanged"
 
         patch_url = ctx.patch.call_args[0][0]
         assert "real-sys-001" in patch_url
@@ -297,10 +170,22 @@ class TestUpdateIncidentRealMode:
         assert "record" not in patched_body
         assert patched_body["work_notes"] == "fixed"
 
-    def test_not_found(self, mock_client, _mock_real):
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
+    def test_with_state_change(self, mock_client):
+        lookup_data = {"result": [{"sys_id": "abc123", "number": "INC0000001"}]}
+        ctx = _make_ctx()
+        ctx.get.return_value = _mock_response(json_data=lookup_data)
+        ctx.patch.return_value = _mock_response(json_data={"result": {}})
+        mock_client.return_value = ctx
+
+        result = update_incident(ticket_number="INC0000001", work_notes="Starting work", state="in_progress")
+        assert result["success"] is True
+        assert result["updated_state"] == "in_progress"
+
+        patched_body = ctx.patch.call_args.kwargs.get("json", ctx.patch.call_args[1].get("json", {}))
+        assert patched_body["state"] == "2"
+
+    def test_not_found(self, mock_client):
+        ctx = _make_ctx()
         ctx.get.return_value = _mock_response(json_data={"result": []})
         mock_client.return_value = ctx
 
@@ -308,68 +193,35 @@ class TestUpdateIncidentRealMode:
         assert result["success"] is False
         assert "not found" in result["error"].lower()
 
+    def test_api_error(self, mock_client):
+        ctx = _make_ctx()
+        ctx.get.return_value = _mock_response(status_code=404, text="Not Found")
+        mock_client.return_value = ctx
+
+        result = update_incident(ticket_number="INC9999999", work_notes="note")
+        assert result["success"] is False
+        assert "404" in result["error"]
+
+    def test_connection_error(self, mock_client):
+        ctx = _make_ctx()
+        ctx.get.side_effect = httpx.ConnectError("Connection refused")
+        mock_client.return_value = ctx
+
+        result = update_incident(ticket_number="INC0000001", work_notes="note")
+        assert result["success"] is False
+        assert "connection error" in result["error"].lower()
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # get_incident
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-@patch("mcp_servicenow.tools._is_real_servicenow", return_value=False)
 @patch("mcp_servicenow.tools._snow_client")
-class TestGetIncidentMockMode:
-    """Tests for get_incident in mock mode."""
+class TestGetIncident:
+    """Tests for get_incident."""
 
-    def test_success(self, mock_client, _mock_real):
-        incident = {
-            "record": {
-                "short_description": "Pod crash",
-                "state": "1",
-                "priority": "2",
-                "assignment_group": "NOC-Team",
-                "sys_created_on": "2026-06-01T10:00:00Z",
-                "sys_updated_on": "2026-06-01T10:05:00Z",
-            }
-        }
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.get.return_value = _mock_response(json_data=incident)
-        mock_client.return_value = ctx
-
-        result = get_incident(ticket_number="INC0000001")
-        assert result["ticket_number"] == "INC0000001"
-        assert result["state"] == "New"
-        assert result["short_description"] == "Pod crash"
-
-    def test_api_error(self, mock_client, _mock_real):
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.get.return_value = _mock_response(status_code=404, text="Not Found")
-        mock_client.return_value = ctx
-
-        result = get_incident(ticket_number="INC9999999")
-        assert result["success"] is False
-        assert "404" in result["error"]
-
-    def test_connection_error(self, mock_client, _mock_real):
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.get.side_effect = httpx.ConnectError("Connection refused")
-        mock_client.return_value = ctx
-
-        result = get_incident(ticket_number="INC0000001")
-        assert result["success"] is False
-        assert "connection error" in result["error"].lower()
-
-
-@patch("mcp_servicenow.tools._is_real_servicenow", return_value=True)
-@patch("mcp_servicenow.tools._snow_client")
-class TestGetIncidentRealMode:
-    """Tests for get_incident in real ServiceNow mode."""
-
-    def test_success(self, mock_client, _mock_real):
+    def test_success(self, mock_client):
         lookup_data = {
             "result": [
                 {
@@ -384,9 +236,7 @@ class TestGetIncidentRealMode:
                 }
             ]
         }
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
+        ctx = _make_ctx()
         ctx.get.return_value = _mock_response(json_data=lookup_data)
         mock_client.return_value = ctx
 
@@ -395,10 +245,8 @@ class TestGetIncidentRealMode:
         assert result["state"] == "In Progress"
         assert result["short_description"] == "Edge outage"
 
-    def test_not_found(self, mock_client, _mock_real):
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
+    def test_not_found(self, mock_client):
+        ctx = _make_ctx()
         ctx.get.return_value = _mock_response(json_data={"result": []})
         mock_client.return_value = ctx
 
@@ -406,42 +254,59 @@ class TestGetIncidentRealMode:
         assert result["success"] is False
         assert "not found" in result["error"].lower()
 
+    def test_api_error(self, mock_client):
+        ctx = _make_ctx()
+        ctx.get.return_value = _mock_response(status_code=404, text="Not Found")
+        mock_client.return_value = ctx
+
+        result = get_incident(ticket_number="INC9999999")
+        assert result["success"] is False
+        assert "404" in result["error"]
+
+    def test_connection_error(self, mock_client):
+        ctx = _make_ctx()
+        ctx.get.side_effect = httpx.ConnectError("Connection refused")
+        mock_client.return_value = ctx
+
+        result = get_incident(ticket_number="INC0000001")
+        assert result["success"] is False
+        assert "connection error" in result["error"].lower()
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # resolve_incident
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-@patch("mcp_servicenow.tools._is_real_servicenow", return_value=False)
 @patch("mcp_servicenow.tools._snow_client")
-class TestResolveIncidentMockMode:
-    """Tests for resolve_incident in mock mode."""
+class TestResolveIncident:
+    """Tests for resolve_incident."""
 
-    def test_success(self, mock_client, _mock_real):
-        incident_record = {"sys_id": "abc123", "number": "INC0000001"}
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.get.return_value = _mock_response(json_data={"record": incident_record})
-        ctx.patch.return_value = _mock_response(json_data={"record": incident_record})
+    def test_success_uses_sys_id(self, mock_client):
+        lookup_data = {"result": [{"sys_id": "real-sys-001", "number": "INC0010001"}]}
+        ctx = _make_ctx()
+        ctx.get.return_value = _mock_response(json_data=lookup_data)
+        ctx.patch.return_value = _mock_response(json_data={"result": {}})
         mock_client.return_value = ctx
 
-        result = resolve_incident(
-            ticket_number="INC0000001",
-            resolution_notes="Restarted pod successfully",
-        )
+        result = resolve_incident(ticket_number="INC0010001", resolution_notes="Fixed the root cause")
         assert result["success"] is True
-        assert result["ticket_number"] == "INC0000001"
+        assert result["ticket_number"] == "INC0010001"
         assert result["state"] == "Resolved"
         assert result["resolution_code"] == "Solved (Permanently)"
 
-    def test_custom_resolution_code(self, mock_client, _mock_real):
-        incident_record = {"sys_id": "abc123", "number": "INC0000001"}
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.get.return_value = _mock_response(json_data={"record": incident_record})
-        ctx.patch.return_value = _mock_response(json_data={"record": incident_record})
+        patch_url = ctx.patch.call_args[0][0]
+        assert "real-sys-001" in patch_url
+
+        patched_body = ctx.patch.call_args.kwargs.get("json", ctx.patch.call_args[1].get("json", {}))
+        assert "record" not in patched_body
+        assert patched_body["state"] == "6"
+
+    def test_custom_resolution_code(self, mock_client):
+        lookup_data = {"result": [{"sys_id": "abc123", "number": "INC0000001"}]}
+        ctx = _make_ctx()
+        ctx.get.return_value = _mock_response(json_data=lookup_data)
+        ctx.patch.return_value = _mock_response(json_data={"result": {}})
         mock_client.return_value = ctx
 
         result = resolve_incident(
@@ -452,10 +317,17 @@ class TestResolveIncidentMockMode:
         assert result["success"] is True
         assert result["resolution_code"] == "Solved (Workaround)"
 
-    def test_api_error(self, mock_client, _mock_real):
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
+    def test_not_found(self, mock_client):
+        ctx = _make_ctx()
+        ctx.get.return_value = _mock_response(json_data={"result": []})
+        mock_client.return_value = ctx
+
+        result = resolve_incident(ticket_number="INC9999999", resolution_notes="x")
+        assert result["success"] is False
+        assert "not found" in result["error"].lower()
+
+    def test_api_error(self, mock_client):
+        ctx = _make_ctx()
         ctx.get.return_value = _mock_response(status_code=500, text="Server Error")
         mock_client.return_value = ctx
 
@@ -463,52 +335,14 @@ class TestResolveIncidentMockMode:
         assert result["success"] is False
         assert "500" in result["error"]
 
-    def test_connection_error(self, mock_client, _mock_real):
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
+    def test_connection_error(self, mock_client):
+        ctx = _make_ctx()
         ctx.get.side_effect = httpx.ConnectError("Connection refused")
         mock_client.return_value = ctx
 
         result = resolve_incident(ticket_number="INC0000001", resolution_notes="x")
         assert result["success"] is False
         assert "connection error" in result["error"].lower()
-
-
-@patch("mcp_servicenow.tools._is_real_servicenow", return_value=True)
-@patch("mcp_servicenow.tools._snow_client")
-class TestResolveIncidentRealMode:
-    """Tests for resolve_incident in real ServiceNow mode."""
-
-    def test_success_uses_sys_id(self, mock_client, _mock_real):
-        lookup_data = {"result": [{"sys_id": "real-sys-001", "number": "INC0010001"}]}
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.get.return_value = _mock_response(json_data=lookup_data)
-        ctx.patch.return_value = _mock_response(json_data={"result": {}})
-        mock_client.return_value = ctx
-
-        result = resolve_incident(ticket_number="INC0010001", resolution_notes="Fixed the root cause")
-        assert result["success"] is True
-
-        patch_url = ctx.patch.call_args[0][0]
-        assert "real-sys-001" in patch_url
-
-        patched_body = ctx.patch.call_args.kwargs.get("json", ctx.patch.call_args[1].get("json", {}))
-        assert "record" not in patched_body
-        assert patched_body["state"] == "6"
-
-    def test_not_found(self, mock_client, _mock_real):
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
-        ctx.get.return_value = _mock_response(json_data={"result": []})
-        mock_client.return_value = ctx
-
-        result = resolve_incident(ticket_number="INC9999999", resolution_notes="x")
-        assert result["success"] is False
-        assert "not found" in result["error"].lower()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -532,9 +366,7 @@ class TestNotifySlackTicketCreated:
     def test_success(self, mock_client_cls):
         from mcp_servicenow.tools import _notify_slack_ticket_created
 
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
+        ctx = _make_ctx()
         ctx.post.return_value = _mock_response(json_data={"ok": True, "ts": "1234.5678"})
         mock_client_cls.return_value = ctx
 
@@ -549,9 +381,7 @@ class TestNotifySlackTicketCreated:
     def test_slack_api_error(self, mock_client_cls):
         from mcp_servicenow.tools import _notify_slack_ticket_created
 
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
+        ctx = _make_ctx()
         ctx.post.return_value = _mock_response(json_data={"ok": False, "error": "channel_not_found"})
         mock_client_cls.return_value = ctx
 
@@ -564,9 +394,7 @@ class TestNotifySlackTicketCreated:
     def test_connection_error(self, mock_client_cls):
         from mcp_servicenow.tools import _notify_slack_ticket_created
 
-        ctx = MagicMock()
-        ctx.__enter__ = MagicMock(return_value=ctx)
-        ctx.__exit__ = MagicMock(return_value=False)
+        ctx = _make_ctx()
         ctx.post.side_effect = httpx.ConnectError("Connection refused")
         mock_client_cls.return_value = ctx
 

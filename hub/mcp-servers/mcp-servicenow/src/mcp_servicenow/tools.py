@@ -9,9 +9,7 @@ from .config import (
     SLACK_BASE_URL,
     SLACK_BOT_TOKEN,
     SLACK_NOC_CHANNEL,
-    SNOW_API_KEY,
     SNOW_CALLER_NAME,
-    SNOW_MODE,
     SNOW_PASSWORD,
     SNOW_URL,
     SNOW_USERNAME,
@@ -19,50 +17,25 @@ from .config import (
 )
 
 
-def _is_real_servicenow() -> bool:
-    if SNOW_MODE == "real":
-        return True
-    if SNOW_MODE == "mock":
-        return False
-    return bool(SNOW_USERNAME and SNOW_PASSWORD)
-
-
 def _snow_client() -> httpx.Client:
-    """Create httpx client for ServiceNow API (mock or real instance)."""
-    headers: dict[str, str] = {"Content-Type": "application/json"}
-    auth = None
-
-    if _is_real_servicenow():
-        auth = (SNOW_USERNAME, SNOW_PASSWORD)
-    elif SNOW_API_KEY:
-        headers["X-API-Key"] = SNOW_API_KEY
-
-    return httpx.Client(base_url=f"{SNOW_URL}/api/now", headers=headers, auth=auth, timeout=15)
-
-
-def _extract_record(data: dict) -> dict:
-    """Normalize ServiceNow response payload across mock and real APIs."""
-    if isinstance(data.get("result"), dict):
-        return data["result"]
-    if isinstance(data.get("record"), dict):
-        return data["record"]
-    return data
+    """Create httpx client for ServiceNow API — always uses Basic Auth."""
+    return httpx.Client(
+        base_url=f"{SNOW_URL}/api/now",
+        headers={"Content-Type": "application/json"},
+        auth=(SNOW_USERNAME, SNOW_PASSWORD),
+        timeout=15,
+    )
 
 
 def _lookup_incident(client: httpx.Client, ticket_number: str) -> dict:
-    """Find incident by ticket number and return normalized record."""
-    if _is_real_servicenow():
-        query = quote(f"number={ticket_number}", safe="")
-        resp = client.get(f"/table/incident?sysparm_query={query}&sysparm_limit=1")
-        resp.raise_for_status()
-        results = resp.json().get("result", [])
-        if not results:
-            raise ValueError(f"Incident not found: {ticket_number}")
-        return results[0]
-
-    resp = client.get(f"/table/incident/{ticket_number}")
+    """Find incident by ticket number via sysparm_query and return the record."""
+    query = quote(f"number={ticket_number}", safe="")
+    resp = client.get(f"/table/incident?sysparm_query={query}&sysparm_limit=1")
     resp.raise_for_status()
-    return _extract_record(resp.json())
+    results = resp.json().get("result", [])
+    if not results:
+        raise ValueError(f"Incident not found: {ticket_number}")
+    return results[0]
 
 
 def _resolve_or_create_caller_sys_id(client: httpx.Client, display_name: str) -> str:
@@ -152,12 +125,11 @@ def create_incident(
         Dict with ticket_number, sys_id, and incident URL
     """
     try:
-        caller_value = SNOW_CALLER_NAME
         with _snow_client() as client:
-            if _is_real_servicenow():
-                caller_sys_id = _resolve_or_create_caller_sys_id(client, SNOW_CALLER_NAME)
-                if caller_sys_id:
-                    caller_value = caller_sys_id
+            caller_value = SNOW_CALLER_NAME
+            caller_sys_id = _resolve_or_create_caller_sys_id(client, SNOW_CALLER_NAME)
+            if caller_sys_id:
+                caller_value = caller_sys_id
 
             payload = {
                 "short_description": short_description[:160],
@@ -171,10 +143,9 @@ def create_incident(
                 "urgency": str(priority),
                 "impact": str(priority),
             }
-            body = payload if _is_real_servicenow() else {"record": payload}
-            resp = client.post("/table/incident", json=body)
+            resp = client.post("/table/incident", json=payload)
             resp.raise_for_status()
-            data = _extract_record(resp.json())
+            data = resp.json().get("result", {})
 
         result = {
             "success": True,
@@ -222,9 +193,8 @@ def update_incident(
 
         with _snow_client() as client:
             record = _lookup_incident(client, ticket_number)
-            incident_key = record.get("sys_id", ticket_number) if _is_real_servicenow() else ticket_number
-            body = payload if _is_real_servicenow() else {"record": payload}
-            resp = client.patch(f"/table/incident/{incident_key}", json=body)
+            sys_id = record.get("sys_id", "")
+            resp = client.patch(f"/table/incident/{sys_id}", json=payload)
             resp.raise_for_status()
 
         return {
@@ -302,9 +272,8 @@ def resolve_incident(
 
         with _snow_client() as client:
             record = _lookup_incident(client, ticket_number)
-            incident_key = record.get("sys_id", ticket_number) if _is_real_servicenow() else ticket_number
-            body = payload if _is_real_servicenow() else {"record": payload}
-            resp = client.patch(f"/table/incident/{incident_key}", json=body)
+            sys_id = record.get("sys_id", "")
+            resp = client.patch(f"/table/incident/{sys_id}", json=payload)
             resp.raise_for_status()
 
         return {
