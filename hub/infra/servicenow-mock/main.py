@@ -13,20 +13,27 @@ Uses the same REST contract as a real ServiceNow instance:
 
 Authentication:
     HTTP Basic Auth (validated against SERVICENOW_USERNAME / SERVICENOW_PASSWORD env vars)
+
+Note: Error responses use FastAPI's default shape ({"detail": "..."}), not
+ServiceNow's ({"error": {"message": "...", "detail": "..."}, "status": "failure"}).
+This is fine while the MCP server only checks status codes via raise_for_status();
+align the error envelope here if client-side error-body parsing is ever added.
 """
 
 from __future__ import annotations
 
-import base64
 import os
+import secrets
 import uuid
 from datetime import datetime, timezone
 from typing import Any
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 app = FastAPI(title="ServiceNow Mock", version="2.0.0")
+security = HTTPBasic()
 
 MOCK_USERNAME = os.getenv("SERVICENOW_USERNAME", "admin")
 MOCK_PASSWORD = os.getenv("SERVICENOW_PASSWORD", "admin")
@@ -37,18 +44,13 @@ users: dict[str, dict[str, Any]] = {}
 _incident_counter = 1
 
 
-def _verify_basic_auth(request: Request):
-    auth = request.headers.get("Authorization", "")
-    if not auth.startswith("Basic "):
-        raise HTTPException(status_code=401, detail="Missing or invalid Authorization header")
-    try:
-        decoded = base64.b64decode(auth[6:]).decode("utf-8")
-        username, password = decoded.split(":", 1)
-    except Exception:
-        raise HTTPException(status_code=401, detail="Malformed Basic Auth header")
-    if username != MOCK_USERNAME or password != MOCK_PASSWORD:
+def _verify_basic_auth(credentials: HTTPBasicCredentials = Depends(security)):
+    if not (
+        secrets.compare_digest(credentials.username, MOCK_USERNAME)
+        and secrets.compare_digest(credentials.password, MOCK_PASSWORD)
+    ):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    return username
+    return credentials.username
 
 
 def _now() -> str:
@@ -72,6 +74,23 @@ def _parse_sysparm_query(query: str) -> dict[str, str]:
             key, value = part.split("=", 1)
             params[key.strip()] = value.strip()
     return params
+
+
+def _apply_query_params(
+    records: list[dict[str, Any]],
+    sysparm_query: str,
+    sysparm_limit: int,
+    sysparm_fields: str,
+) -> list[dict[str, Any]]:
+    """Filter, limit, and project a list of records."""
+    filters = _parse_sysparm_query(sysparm_query)
+    for key, value in filters.items():
+        records = [r for r in records if str(r.get(key, "")) == value]
+    records = records[:sysparm_limit]
+    if sysparm_fields:
+        fields = [f.strip() for f in sysparm_fields.split(",")]
+        records = [{k: r[k] for k in fields if k in r} for r in records]
+    return records
 
 
 # ─── Incident endpoints ──────────────────────────────────────────────────────
@@ -128,18 +147,12 @@ async def list_incidents(
     _: str = Depends(_verify_basic_auth),
 ):
     filters = _parse_sysparm_query(sysparm_query)
-    results = list(incidents.values())
-
-    for key, value in filters.items():
-        results = [i for i in results if str(i.get(key, "")) == value]
-
-    results = results[:sysparm_limit]
-
-    if sysparm_fields:
-        fields = [f.strip() for f in sysparm_fields.split(",")]
-        results = [{k: r[k] for k in fields if k in r} for r in results]
-
-    return {"result": results}
+    if list(filters.keys()) == ["number"] and filters["number"] in _incidents_by_number:
+        sid = _incidents_by_number[filters["number"]]
+        candidates = [incidents[sid]]
+    else:
+        candidates = list(incidents.values())
+    return {"result": _apply_query_params(candidates, sysparm_query, sysparm_limit, sysparm_fields)}
 
 
 # ─── User endpoints ──────────────────────────────────────────────────────────
@@ -152,19 +165,9 @@ async def get_user(
     sysparm_fields: str = "",
     _: str = Depends(_verify_basic_auth),
 ):
-    filters = _parse_sysparm_query(sysparm_query)
-    results = list(users.values())
-
-    for key, value in filters.items():
-        results = [u for u in results if u.get(key, "") == value]
-
-    results = results[:sysparm_limit]
-
-    if sysparm_fields:
-        fields = [f.strip() for f in sysparm_fields.split(",")]
-        results = [{k: r[k] for k in fields if k in r} for r in results]
-
-    return {"result": results}
+    return {"result": _apply_query_params(
+        list(users.values()), sysparm_query, sysparm_limit, sysparm_fields,
+    )}
 
 
 @app.post("/api/now/table/sys_user", status_code=201)

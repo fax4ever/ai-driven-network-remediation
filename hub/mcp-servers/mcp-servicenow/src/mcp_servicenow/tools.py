@@ -5,6 +5,8 @@ from urllib.parse import quote
 
 import httpx
 
+MAX_SHORT_DESCRIPTION_LEN = 160
+
 from .config import (
     SLACK_BASE_URL,
     SLACK_BOT_TOKEN,
@@ -132,7 +134,7 @@ def create_incident(
                 caller_value = caller_sys_id
 
             payload = {
-                "short_description": short_description[:160],
+                "short_description": short_description[:MAX_SHORT_DESCRIPTION_LEN],
                 "description": description,
                 "priority": str(priority),
                 "caller_id": caller_value,
@@ -153,7 +155,7 @@ def create_incident(
             "sys_id": data.get("sys_id", ""),
             "state": "New",
             "priority": priority,
-            "short_description": short_description[:160],
+            "short_description": short_description[:MAX_SHORT_DESCRIPTION_LEN],
             "caller_name": SNOW_CALLER_NAME,
             "incident_url": _incident_url(data.get("sys_id", ""), data.get("number", "")),
         }
@@ -193,7 +195,7 @@ def update_incident(
 
         with _snow_client() as client:
             record = _lookup_incident(client, ticket_number)
-            sys_id = record.get("sys_id", "")
+            sys_id = record["sys_id"]
             resp = client.patch(f"/table/incident/{sys_id}", json=payload)
             resp.raise_for_status()
 
@@ -272,7 +274,7 @@ def resolve_incident(
 
         with _snow_client() as client:
             record = _lookup_incident(client, ticket_number)
-            sys_id = record.get("sys_id", "")
+            sys_id = record["sys_id"]
             resp = client.patch(f"/table/incident/{sys_id}", json=payload)
             resp.raise_for_status()
 
