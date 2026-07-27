@@ -59,7 +59,6 @@ After bootstrapping, plug the credentials into your Helm deployment:
 ```bash
 make helm-install \
   HELM_EXTRA_ARGS="--set mcp-servers.mcp-servers.noc-servicenow.env.SERVICENOW_URL=https://dev12345.service-now.com \
-                   --set mcp-servers.mcp-servers.noc-servicenow.env.SERVICENOW_MODE=real \
                    --set mcpSecrets.servicenow.username=noc_agent \
                    --set mcpSecrets.servicenow.password=<generated>"
 ```

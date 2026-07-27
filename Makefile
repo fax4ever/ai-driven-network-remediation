@@ -116,9 +116,7 @@ helm_mock_args = \
 	--set servicenowMock.image.tag=$(VERSION) \
 	$(if $(filter true,$(ENABLE_AAP_MOCK)),--set mcp-servers.mcp-servers.noc-aap.env.AAP_URL=http://aap-mock.$(NAMESPACE).svc:8080,) \
 	$(if $(filter true,$(ENABLE_AAP_MOCK)),--set mcp-servers.mcp-servers.noc-aap.env.AAP_VERIFY_SSL=false,) \
-	$(if $(filter true,$(ENABLE_SERVICENOW_MOCK)),--set mcp-servers.mcp-servers.noc-servicenow.env.SERVICENOW_URL=http://servicenow-mock.$(NAMESPACE).svc:8080,) \
-	$(if $(filter true,$(ENABLE_SERVICENOW_MOCK)),--set mcp-servers.mcp-servers.noc-servicenow.env.SERVICENOW_MODE=mock,) \
-	$(if $(filter true,$(ENABLE_SERVICENOW_MOCK)),--set-string mcpSecrets.servicenow.apiKey=demo-api-key-2026,)
+	$(if $(filter true,$(ENABLE_SERVICENOW_MOCK)),--set mcp-servers.mcp-servers.noc-servicenow.env.SERVICENOW_URL=http://servicenow-mock.$(NAMESPACE).svc:8080,)
 
 helm_lokistack_args = \
 	--set lokistack.enabled=$(ENABLE_LOKISTACK) \
@@ -424,7 +422,7 @@ unit-tests:
 	cd hub/mcp-servers/mcp-lokistack && uv sync --group dev && uv run pytest
 	cd hub/mcp-servers/mcp-aap && uv sync --group dev && AAP_USERNAME=test AAP_PASSWORD=test uv run pytest
 	cd hub/mcp-servers/mcp-kafka && uv sync --group dev && uv run pytest
-	cd hub/mcp-servers/mcp-servicenow && uv sync --group dev && SERVICENOW_API_KEY=test uv run pytest
+	cd hub/mcp-servers/mcp-servicenow && uv sync --group dev && uv run pytest
 	cd hub/infra/servicenow-mock && uv sync --group dev && uv run pytest
 	cd hub/telco-oran && uv sync --group dev && uv run pytest
 

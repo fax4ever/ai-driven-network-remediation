@@ -15,21 +15,21 @@ MCP server wrapping the ServiceNow REST API for incident management in the AI-dr
 
 | Variable | Required | Default |
 |---|---|---|
-| `SERVICENOW_API_KEY` | Yes | — |
 | `SERVICENOW_URL` | No | `http://servicenow-mock...svc:8080` |
-| `SERVICENOW_MODE` | No | `auto` (`auto`/`mock`/`real`) |
-| `SERVICENOW_USERNAME` | No | `""` |
-| `SERVICENOW_PASSWORD` | No | `""` |
+| `SERVICENOW_USERNAME` | No | `admin` |
+| `SERVICENOW_PASSWORD` | No | `admin` |
 | `SERVICENOW_CALLER_NAME` | No | `NOC Agent` |
 | `MCP_TRANSPORT` | No | `sse` |
 | `MCP_PORT` | No | `8000` |
 
+The mock and real ServiceNow instances use the same API contract (Basic Auth, flat JSON, `sysparm_query` lookups). `SERVICENOW_URL` is the only knob — point it at a real PDI or the local mock.
+
 ## Running Locally
 
 ```bash
-export SERVICENOW_API_KEY=demo-api-key-2026
-export SERVICENOW_URL=http://localhost:8080  # point at a servicenow-mock
-export SERVICENOW_MODE=mock
+export SERVICENOW_URL=http://localhost:8080  # point at a servicenow-mock or real PDI
+export SERVICENOW_USERNAME=admin
+export SERVICENOW_PASSWORD=admin
 export MCP_TRANSPORT=streamable-http
 uv run uvicorn mcp_servicenow:app --host 0.0.0.0 --port 8000
 ```
@@ -38,7 +38,7 @@ uv run uvicorn mcp_servicenow:app --host 0.0.0.0 --port 8000
 
 ```bash
 # Unit tests (mocks all HTTP calls)
-SERVICENOW_API_KEY=test uv sync --group dev && uv run pytest
+uv sync --group dev && uv run pytest
 
 # Integration tests run via: make integration-tests
 ```

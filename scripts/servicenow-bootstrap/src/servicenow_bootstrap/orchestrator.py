@@ -234,7 +234,7 @@ Examples:
         print(
             "  4. Deploy with: make helm-install "
             'HELM_EXTRA_ARGS="--set mcp-servers.mcp-servers.'
-            'noc-servicenow.env.SERVICENOW_MODE=real ..."'
+            'noc-servicenow.env.SERVICENOW_URL=https://devXXXXX.service-now.com ..."'
         )
 
     except KeyboardInterrupt:

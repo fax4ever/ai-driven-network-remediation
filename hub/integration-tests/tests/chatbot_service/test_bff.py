@@ -26,7 +26,6 @@ def test_summary(chatbot_client):
     assert "timestamp" in data
     assert data["agent_status"] == "running"
     assert isinstance(data["servicenow"], dict)
-    assert "mode" in data["servicenow"]
     assert "reachable" in data["servicenow"]
 
 
