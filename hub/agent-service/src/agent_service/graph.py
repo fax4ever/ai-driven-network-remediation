@@ -7,8 +7,10 @@ from agent_service.models import GraphConfig, IncidentState
 from agent_service.nodes import (
     analyze_node,
     audit_node,
+    enrich_node,
     escalate_node,
     lightspeed_node,
+    make_investigate_node,
     make_remediate_node,
     normalize_node,
     notify_node,
@@ -40,6 +42,8 @@ def build_graph(config: Optional[GraphConfig] = None):
     graph = StateGraph(IncidentState)
 
     graph.add_node("normalize", normalize_node)
+    graph.add_node("enrich", enrich_node)
+    graph.add_node("investigate", make_investigate_node(config))
     graph.add_node("rag_retrieval", rag_retrieval_node)
     graph.add_node("analyze", analyze_node)
     graph.add_node("decide", make_decide_node(config))
@@ -51,7 +55,9 @@ def build_graph(config: Optional[GraphConfig] = None):
     graph.add_node("audit", audit_node)
 
     graph.add_edge(START, "normalize")
-    graph.add_edge("normalize", "rag_retrieval")
+    graph.add_edge("normalize", "enrich")
+    graph.add_edge("enrich", "investigate")
+    graph.add_edge("investigate", "rag_retrieval")
     graph.add_edge("rag_retrieval", "analyze")
     graph.add_edge("analyze", "decide")
     graph.add_conditional_edges(
