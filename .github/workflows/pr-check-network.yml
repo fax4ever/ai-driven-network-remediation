@@ -1,0 +1,36 @@
+name: Network E2E Tests
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'  # Run daily at 2 AM UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  trust-gate:
+    name: Trust gate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR author trust
+        if: github.event_name == 'pull_request_target'
+        env:
+          AUTHOR_ASSOC: ${{ github.event.pull_request.author_association }}
+        run: |
+          case "${AUTHOR_ASSOC}" in
+            OWNER|MEMBER|COLLABORATOR) echo "Trusted author"; exit 0 ;;
+            *) echo "::error::Untrusted PR author (${AUTHOR_ASSOC}). A maintainer must review the changes and re-run this workflow."; exit 1 ;;
+          esac
+
+  network-e2e-tests:
+    needs: [trust-gate]
+    uses: ./.github/workflows/pr-check-common.yml
+    with:
+      suite_name: network
+      make_target: integration-tests-network
+      hub_helm_extra_args: --set ranAnomalyDetector.enabled=false
+    secrets: inherit

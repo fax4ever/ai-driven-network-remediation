@@ -513,8 +513,17 @@ unit-tests:
 	cd hub/telco-oran && uv sync --group dev && uv run pytest
 	cd hub/ran-anomaly-detector && uv sync --group dev && uv run pytest
 
-.PHONY: integration-tests
-integration-tests:
+.PHONY: integration-tests integration-tests-network integration-tests-telco _integration-tests
+integration-tests: INTEGRATION_TEST_MARKER :=
+integration-tests: _integration-tests
+
+integration-tests-network: INTEGRATION_TEST_MARKER := not telco
+integration-tests-network: _integration-tests
+
+integration-tests-telco: INTEGRATION_TEST_MARKER := telco
+integration-tests-telco: _integration-tests
+
+_integration-tests:
 ifeq ($(ENABLE_HUB),true)
 	oc port-forward -n $(NAMESPACE) svc/hub-chatbot-service 8080:80 & \
 	PF1_PID=$$!; \
@@ -539,7 +548,7 @@ ifeq ($(ENABLE_HUB),true)
 	PF9_PID=$$!; \
 	trap "kill $$PF1_PID $$PF2_PID $$PF3_PID $$PF4_PID $$PF5_PID $$PF6_PID $$PF8_PID $$PF9_PID $$PF10_PID" EXIT; \
 	sleep 2 && cd hub/integration-tests && \
-	AGENT_SERVICE_URL=http://localhost:8007 LLAMASTACK_URL=http://localhost:8321 ENABLE_LOKISTACK=$(ENABLE_LOKISTACK) EDGE_NAMESPACE=$(EDGE_NAMESPACE) uv run pytest
+	AGENT_SERVICE_URL=http://localhost:8007 LLAMASTACK_URL=http://localhost:8321 ENABLE_LOKISTACK=$(ENABLE_LOKISTACK) EDGE_NAMESPACE=$(EDGE_NAMESPACE) uv run pytest $(if $(INTEGRATION_TEST_MARKER),-m '$(INTEGRATION_TEST_MARKER)',)
 else
 	@echo "ENABLE_HUB is not true — skipping hub integration tests"
 endif

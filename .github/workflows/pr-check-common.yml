@@ -1,34 +1,25 @@
-name: E2E Tests
+name: Shared PR E2E Job
 
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened]
-  workflow_dispatch:
-  schedule:
-    - cron: '0 2 * * *'  # Run daily at 2 AM UTC
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  workflow_call:
+    inputs:
+      suite_name:
+        description: Human-readable suite name for job and step labels.
+        required: true
+        type: string
+      make_target:
+        description: Make target that runs the requested integration subset.
+        required: true
+        type: string
+      hub_helm_extra_args:
+        description: Optional extra Helm arguments for the Kind deployment.
+        required: false
+        default: ""
+        type: string
 
 jobs:
-  trust-gate:
-    name: Trust gate
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check PR author trust
-        if: github.event_name == 'pull_request_target'
-        env:
-          AUTHOR_ASSOC: ${{ github.event.pull_request.author_association }}
-        run: |
-          case "${AUTHOR_ASSOC}" in
-            OWNER|MEMBER|COLLABORATOR) echo "Trusted author"; exit 0 ;;
-            *) echo "::error::Untrusted PR author (${AUTHOR_ASSOC}). A maintainer must review the changes and re-run this workflow."; exit 1 ;;
-          esac
-
   e2e-tests:
-    needs: [trust-gate]
-    name: Run e2e tests
+    name: Run ${{ inputs.suite_name }} e2e tests
     runs-on: ubuntu-latest
     steps:
       - name: Validate ADNR_LLM_ID variable
@@ -79,12 +70,13 @@ jobs:
           ADNR_LLM_ID: ${{ vars.ADNR_LLM_ID }}
           ADNR_LLM_URL: ${{ vars.ADNR_LLM_URL }}
           ADNR_LLM_TOKEN: ${{ secrets.ADNR_LLM_TOKEN }}
+          HUB_HELM_EXTRA_ARGS: ${{ inputs.hub_helm_extra_args }}
 
       - name: Setup uv
         uses: astral-sh/setup-uv@v6
 
-      - name: Run integration tests
-        run: make integration-tests
+      - name: Run ${{ inputs.suite_name }} integration tests
+        run: make ${{ inputs.make_target }}
 
       - name: Collect ingestion-pipeline diagnostics
         if: failure()
