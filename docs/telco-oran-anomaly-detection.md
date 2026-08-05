@@ -393,7 +393,7 @@ was scoped as a separate, later task. That dashboard is now built; see
 
 `ran-chatbot-service` remains directly testable via its REST API (`POST /api/chat`,
 `GET /api/anomalies`), and has black-box integration test coverage in
-[`hub/integration-tests/tests/ran_chatbot_service/`](../hub/integration-tests/tests/ran_chatbot_service/)
+[`hub/integration-tests/tests/telco/ran_chatbot_service/`](../hub/integration-tests/tests/telco/ran_chatbot_service/)
 (run via `make integration-tests` against a deployed cluster, alongside `hub/chatbot-service`'s
 equivalent suite), on top of its own unit tests in `hub/ran-chatbot-service/tests/`.
 

@@ -18,6 +18,8 @@ isn't guaranteed under e.g. a future pytest-randomly addition or a -k filter).
 
 import pytest
 
+pytestmark = pytest.mark.telco
+
 
 def test_health(ran_chatbot_client):
     """Service is alive and reports correct identity."""

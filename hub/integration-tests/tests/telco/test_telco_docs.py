@@ -1,3 +1,7 @@
+import pytest
+
+pytestmark = pytest.mark.telco
+
 # The packaged vendor PDFs are large (500+ pages combined), and each page/section becomes its
 # own vector-store file, so a full ingest run involves hundreds of embedding calls.
 _INGEST_TIMEOUT_SECONDS = 1200.0

@@ -1,4 +1,4 @@
-{{- if .Values.ranChatbotService.enabled }}
+{{- if and .Values.global.telcoOran.enabled .Values.ranChatbotService.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

@@ -4,6 +4,10 @@ These run against a deployed chatbot service (via port-forward or direct URL).
 Set CHATBOT_SERVICE_URL env var to override the default http://localhost:8080.
 """
 
+import pytest
+
+pytestmark = pytest.mark.network
+
 
 def test_health(chatbot_client):
     """Service is alive and reports correct identity."""

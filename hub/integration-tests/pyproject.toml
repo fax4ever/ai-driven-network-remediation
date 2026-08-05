@@ -16,4 +16,6 @@ markers = [
     "integration: integration tests requiring deployed services",
     "e2e: end-to-end tests requiring full RAG stack",
     "order: explicit test execution order (pytest-order)",
+    "telco: Telco/O-RAN-specific integration coverage",
+    "network: Network-remediation-specific integration coverage",
 ]

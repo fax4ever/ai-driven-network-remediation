@@ -88,9 +88,8 @@ LIGHTSPEED_VERIFY_SSL  ?= false
 AUTO_INGEST_ON_STARTUP ?= true
 AAP_NAMESPACE          ?= aap
 ENABLE_SLACK           ?= false
-# Telco/O-RAN path. Off by default: quay.io/rh-ai-quickstart/noc-ran-anomaly-detector
-# is not always published for VERSION, and ImagePullBackOff blocks helm --wait.
-ENABLE_RAN_ANOMALY     ?= false
+ENABLE_NETWORK_REMEDIATION ?= true
+ENABLE_TELCO_ORAN          ?= true
 ENABLE_MULTICLUSTER    ?= false
 ENABLE_GITEA           ?= $(if $(filter false,$(ENABLE_AAP_MOCK)),true,false)
 GITEA_EXTERNAL         ?= false
@@ -299,8 +298,8 @@ helm_all_args = \
 	--set image.ranFrontend=noc-ran-frontend \
 	--set image.frontend=noc-frontend \
 	--set image.tag=$(VERSION) \
-	--set ranAnomalyDetector.enabled=$(ENABLE_RAN_ANOMALY) \
-	--set ranFrontend.enabled=$(ENABLE_RAN_ANOMALY) \
+	--set global.telcoOran.enabled=$(ENABLE_TELCO_ORAN) \
+	--set global.networkRemediation.enabled=$(ENABLE_NETWORK_REMEDIATION) \
 	--set global.routes.enabled=$(ROUTES_ENABLED) \
 	--set edgeRbac.enabled=$(EDGE_RBAC_ENABLED) \
 	--set-string edgeRbac.edgeNamespace='$(EDGE_NAMESPACE)' \
@@ -816,7 +815,7 @@ ifeq ($(ENABLE_HUB),true)
 	PF11_PID=$$!; \
 	trap "kill $$PF1_PID $$PF2_PID $$PF3_PID $$PF4_PID $$PF5_PID $$PF6_PID $$PF8_PID $$PF9_PID $$PF10_PID $$PF11_PID" EXIT; \
 	sleep 2 && cd hub/integration-tests && \
-	AGENT_SERVICE_URL=http://localhost:8007 LLAMASTACK_URL=http://localhost:8321 RAN_CHATBOT_SERVICE_URL=http://localhost:8008 ENABLE_LOKISTACK=$(ENABLE_LOKISTACK) EDGE_NAMESPACE=$(EDGE_NAMESPACE) uv run pytest
+	AGENT_SERVICE_URL=http://localhost:8007 LLAMASTACK_URL=http://localhost:8321 RAN_CHATBOT_SERVICE_URL=http://localhost:8008 ENABLE_LOKISTACK=$(ENABLE_LOKISTACK) EDGE_NAMESPACE=$(EDGE_NAMESPACE) uv run pytest tests/generic $(if $(filter true,$(ENABLE_TELCO_ORAN)),tests/telco) $(if $(filter true,$(ENABLE_NETWORK_REMEDIATION)),tests/network)
 else
 	@echo "ENABLE_HUB is not true — skipping hub integration tests"
 endif

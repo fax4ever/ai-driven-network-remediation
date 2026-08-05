@@ -15,6 +15,10 @@ image:
 global:
   routes:
     enabled: true
+  networkRemediation:
+    enabled: true
+  telcoOran:
+    enabled: true
 
 # ══════════════════════════════════════════════════════════════════════
 # Multi-cluster topology (CLUSTER_COUNT)
@@ -360,6 +364,7 @@ ingestionPipeline:
     periodSeconds: 10
 
 chatbotService:
+  enabled: true
   prompts:
     chatSystem: ""
   replicaCount: 1
@@ -394,6 +399,7 @@ chatbotService:
     periodSeconds: 10
 
 frontend:
+  enabled: true
   replicaCount: 1
   service:
     type: ClusterIP
@@ -414,6 +420,7 @@ frontend:
     periodSeconds: 10
 
 agentService:
+  enabled: true
   prompts:
     analyzeSystem: ""
     investigateSystem: ""
@@ -461,14 +468,11 @@ agentService:
 
 # ══════════════════════════════════════════════════════════════════════
 # RAN Anomaly Detector (Telco/O-RAN) — independent, rule-based workflow.
-# Can be disabled (ranAnomalyDetector.enabled: false) for deployments that
-# don't need the Telco/O-RAN use case.
+# Gated by global.telcoOran.enabled (the whole Telco/O-RAN use case).
 # ══════════════════════════════════════════════════════════════════════
 
 ranAnomalyDetector:
-  # Off by default until the image is published for the selected VERSION.
-  # Enable via ENABLE_RAN_ANOMALY=true (make) or --set ranAnomalyDetector.enabled=true.
-  enabled: false
+  enabled: true
   replicaCount: 1
   env:
     kafkaBootstrap: "kafka:9092"
@@ -539,8 +543,8 @@ ranRcaService:
 # RAN Chatbot Entrypoint (Telco/O-RAN) — thin conversational BFF over
 # detected RAN anomalies and their root cause analysis. Independent from
 # ranAnomalyDetector, ranRcaService, and chatbotService (the network
-# remediation NOC chatbot). Can be disabled (ranChatbotService.enabled:
-# false) for deployments that don't need the Telco/O-RAN use case.
+# remediation NOC chatbot). Gated by global.telcoOran.enabled (the whole
+# Telco/O-RAN use case).
 # ══════════════════════════════════════════════════════════════════════
 
 ranChatbotService:

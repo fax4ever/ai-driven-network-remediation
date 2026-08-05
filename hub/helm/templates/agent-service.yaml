@@ -1,3 +1,4 @@
+{{- if and .Values.global.networkRemediation.enabled .Values.agentService.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -114,3 +115,4 @@ spec:
   selector:
     {{- include "hub.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: agent-service
+{{- end }}
