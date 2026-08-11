@@ -229,15 +229,30 @@ issues and are intentionally not part of this:
 
 | Item | Status |
 |---|---|
-| **Vendor documentation RAG ingestion** | Not yet built — index vendor manuals into a vector store so recommended fixes can cite real documentation sections. |
+| **Vendor documentation RAG ingestion** | **Done** — see the note below the table. |
 | **LLM-based root cause + recommended fix** | **Done** — see [`docs/telco-oran-rca.md`](telco-oran-rca.md). The `ran-rca-service` consumes detected anomalies, enriches them via RAG + Granite LLM, and publishes to `ran-anomalies-enriched`. |
-| **Actual remediation** | Not yet built — nothing executes a real-world fix (e.g. adjusting antenna tilt); both services only detect and report. |
+| **Actual remediation** | Not yet built — nothing executes a real-world fix (e.g. adjusting antenna tilt); none of the three services take real-world action. |
 
 **Note on persistence:** anomalies are only logged and kept in a small in-memory buffer
 (`/anomalies`) — nothing is written to a database or object storage. Unlike the items above, this
 is not deferred work: the original proposal's "results are persisted (database / S3)" acceptance
 criterion was confirmed by the team to be a documentation error, not an actual requirement. The
 in-memory approach is intentional and sufficient for this workflow as designed.
+
+**Vendor documentation RAG ingestion, in detail:** [`hub/ingestion-pipeline`](../hub/ingestion-pipeline/)
+(the same service Workflow 1 already used to ingest its runbooks) was extended, not replaced with
+a new service, to also convert and chunk RAN/O-RAN vendor docs (`hub/ingestion-pipeline/telco-docs/`:
+`gnodeb.pdf` — the Baicells gNodeB manual, `ran_metrics_and_anomalies.docx`, and an OpenShift edge
+computing PDF) into their own vector store, `telco_oran_docs` (distinct from Workflow 1's
+`noc_runbooks` store), configured via `TELCO_VECTOR_STORE_NAME` /
+`hub/helm/values.yaml`'s `ingestionPipeline.telcoVectorStoreName`. With
+`ingestionPipeline.autoIngestOnStartup: "true"` (the default), this vector store is populated
+automatically on every deployment, which is exactly what `ran-rca-service` (below) queries.
+
+**Update:** the "LLM-based root cause + recommended fix" row above is now built as its own
+service, `ran-rca-service` — see [`docs/telco-oran-rca.md`](telco-oran-rca.md) for how it works,
+and [§10](#10-the-chatbot-entrypoint-new-talking-to-detected-anomalies) below for the chatbot
+entrypoint, which now consumes `ran-rca-service`'s real enriched output directly.
 
 ---
 
@@ -271,9 +286,14 @@ For comparison, here's what the equivalent roles are in Workflow 1 (already exis
 |---|---|
 | Domain model & rule engine (reused, unchanged) | [`hub/telco-oran/`](../hub/telco-oran/) |
 | New anomaly-detection service | [`hub/ran-anomaly-detector/`](../hub/ran-anomaly-detector/) |
-| New Kafka topic definition | [`hub/helm/charts/kafka/values.yaml`](../hub/helm/charts/kafka/values.yaml) |
-| New Helm Deployment/Service | [`hub/helm/templates/ran-anomaly-detector.yaml`](../hub/helm/templates/ran-anomaly-detector.yaml) |
-| New Helm values block | [`hub/helm/values.yaml`](../hub/helm/values.yaml) (`ranAnomalyDetector:` section) |
+| Vendor doc RAG ingestion (`telco_oran_docs` vector store, done) | [`hub/ingestion-pipeline/`](../hub/ingestion-pipeline/) (extended, not a new service) |
+| Root cause analysis service (RAG + Granite LLM) | [`hub/ran-rca-service/`](../hub/ran-rca-service/), see [`docs/telco-oran-rca.md`](telco-oran-rca.md) |
+| Chatbot entrypoint (see [§10](#10-the-chatbot-entrypoint-new-talking-to-detected-anomalies)) | [`hub/ran-chatbot-service/`](../hub/ran-chatbot-service/) |
+| New Kafka topic definitions | [`hub/helm/charts/kafka/values.yaml`](../hub/helm/charts/kafka/values.yaml) |
+| New Helm Deployment/Service (detector) | [`hub/helm/templates/ran-anomaly-detector.yaml`](../hub/helm/templates/ran-anomaly-detector.yaml) |
+| New Helm Deployment/Service (RCA) | [`hub/helm/templates/ran-rca-service.yaml`](../hub/helm/templates/ran-rca-service.yaml) |
+| New Helm Deployment/Service (chatbot) | [`hub/helm/templates/ran-chatbot-service.yaml`](../hub/helm/templates/ran-chatbot-service.yaml) |
+| New Helm values blocks | [`hub/helm/values.yaml`](../hub/helm/values.yaml) (`ranAnomalyDetector:`, `ranRcaService:`, and `ranChatbotService:` sections) |
 | Existing edge-infrastructure workflow | [`docs/architecture.md`](architecture.md), [`docs/graph-nodes.md`](graph-nodes.md) |
 
 Try it locally without any Kafka/OpenShift setup:
@@ -284,3 +304,81 @@ uv sync --group dev
 uv run ran-anomaly-detector          # runs a built-in sample and prints detected anomalies
 uv run pytest                        # full test suite
 ```
+
+---
+
+## 10. The chatbot entrypoint (new): talking to detected anomalies
+
+### 10.1 What it is
+
+`hub/ran-chatbot-service` is a thin conversational entrypoint — a FastAPI "backend-for-frontend"
+(BFF) exposing `POST /api/chat` — so an operator can ask about recently detected RAN anomalies in
+natural language ("What's wrong with cell 42?") instead of reading raw JSON. It follows the same
+pattern as the existing NOC chatbot (`hub/chatbot-service`) built for Workflow 1, but is a fully
+independent service: different codebase, different Kafka topics, different persona/prompt, its
+own `enabled` toggle in Helm — it shares no runtime code path with `hub/chatbot-service`,
+`ran-anomaly-detector`, or `ran-rca-service`.
+
+It is deliberately a **thin channel layer**: it does not detect anomalies or perform root cause
+analysis itself. All of that domain logic lives upstream — `ran-anomaly-detector` (detection) and
+`ran-rca-service` (LLM root cause analysis + RAG-based recommended fix, now built — see
+[`docs/telco-oran-rca.md`](telco-oran-rca.md)). This service only turns already-enriched anomaly
+data into a conversational reply.
+
+### 10.2 How it consumes `ran-rca-service`'s output
+
+[`kafka.py`](../hub/ran-chatbot-service/src/ran_chatbot_service/kafka.py)'s `AnomaliesConsumer` is a
+single background thread, started at app startup, that owns the `ran-anomalies-enriched` Kafka
+connection (`ENRICHED_ANOMALIES_TOPIC`, wired as an environment variable in
+[`config.py`](../hub/ran-chatbot-service/src/ran_chatbot_service/config.py) and in Helm) and
+continuously fills an in-memory buffer (`deque(maxlen=ENRICHED_ANOMALIES_MAX_MESSAGES)`) — the same
+background-thread-plus-buffer pattern already used by `ran-anomaly-detector`'s `MetricsConsumer`.
+`POST /api/chat` just reads that buffer directly (an instant in-memory operation, no Kafka I/O on
+the request path at all). On connect (and on every reconnect), it seeks each partition back a
+bounded window and drains it so the buffer is pre-populated with recent history immediately,
+instead of only filling in as new anomalies trickle in. It deliberately does **not** use a Kafka
+consumer group: the topic has multiple partitions, and a shared group would split them across
+`ran-chatbot-service` replicas if ever scaled beyond one, giving each replica only a partial view —
+staying group-less means every replica independently sees the full topic. Each record matches
+`contracts/ran-anomaly-enriched.schema.json`, produced by `ran-rca-service` exactly like this:
+
+```json
+{
+  "cell_id": 42,
+  "band": "Band 29",
+  "anomaly_type": "LowRsrp",
+  "anomaly": "Low RSRP: -125.0 dBm < -110.0 dBm",
+  "root_cause": "Low RSRP typically indicates poor radio conditions, possibly due to distance, interference, or physical obstructions.",
+  "recommended_fix": "Refer to Baicells documentation Section 4.2, Page 15 — Antenna Tilt Adjustment"
+}
+```
+
+If Kafka is unreachable or the topic has no messages yet, the buffer just stays empty and
+`AnomaliesConsumer.is_connected` reports `false` (surfaced as `kafka: false` in `/api/chat`'s
+`_deps` envelope and in `/ready`) rather than failing the request — the LLM still replies, just
+without anomaly context.
+
+### 10.3 End-to-end flow
+
+```mermaid
+flowchart LR
+    detector["ran-anomaly-detector"] -->|"ran-anomalies"| rca["ran-rca-service\n(RAG + Granite LLM)"]
+    rca -->|"ran-anomalies-enriched"| consumer["kafka.py: AnomaliesConsumer\n(background thread)"]
+    consumer --> buffer[("in-memory buffer\napp.state.recent_anomalies")]
+    operator["NOC / RAN operator"] -->|"POST /api/chat\n{message}"| bff["ran-chatbot-service"]
+    bff -->|"list(buffer)\n(instant, no I/O)"| buffer
+    bff --> ctx["chat.py: build_chat_context()"]
+    ctx --> llm["LLM (Granite via LlamaStack)"]
+    llm --> fmt["chat.py: format_chat_reply()"]
+    fmt --> bff
+    bff -->|"reply"| operator
+```
+
+### 10.4 Out of scope for this entrypoint
+
+No frontend/UI work is included here — a dedicated O-RAN web dashboard is a separate, later task.
+`ran-chatbot-service` is currently testable directly via its REST API (`POST /api/chat`), and has
+black-box integration test coverage in
+[`hub/integration-tests/tests/ran_chatbot_service/`](../hub/integration-tests/tests/ran_chatbot_service/)
+(run via `make integration-tests` against a deployed cluster, alongside `hub/chatbot-service`'s
+equivalent suite), on top of its own unit tests in `hub/ran-chatbot-service/tests/`.
