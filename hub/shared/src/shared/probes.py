@@ -1,4 +1,4 @@
-"""Generic HTTP reachability probe, used by the /ready endpoint."""
+"""Generic HTTP reachability probe, used by /ready endpoints."""
 
 from __future__ import annotations
 
@@ -7,15 +7,18 @@ from typing import Any
 
 import httpx
 
-from .config import SSL_VERIFY
-
 logger = logging.getLogger(__name__)
 
 
-async def probe_http(url: str, timeout: float = 4.0) -> dict[str, Any]:
-    """Probe a service endpoint. Treats 200/401/403/404/405 as reachable."""
+async def probe_http(url: str, timeout: float = 4.0, verify: bool | str = True) -> dict[str, Any]:
+    """Probe a service endpoint. Treats 200/401/403/404/405 as reachable.
+
+    `verify` is passed straight through to httpx (bool, or a CA bundle path
+    string) — callers supply their own service-specific SSL_VERIFY setting,
+    since this package has no config module of its own.
+    """
     try:
-        async with httpx.AsyncClient(timeout=timeout, verify=SSL_VERIFY) as client:
+        async with httpx.AsyncClient(timeout=timeout, verify=verify) as client:
             resp = await client.get(url)
             reachable = resp.status_code in {200, 401, 403, 404, 405}
             return {

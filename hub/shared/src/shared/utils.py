@@ -1,4 +1,4 @@
-"""Shared utility functions."""
+"""Domain-free infrastructure helpers shared across chatbot BFF services."""
 
 from __future__ import annotations
 
@@ -18,8 +18,8 @@ def normalize_session_id(session_id: str | None) -> str:
 def build_deps(checks: dict[str, bool]) -> dict[str, Any]:
     """Build the _deps envelope from named dependency checks.
 
-    checks: {"kafka": True, "llm": False}
-    returns: {"status": "ok"} or {"status": "degraded", "unavailable": ["llm"]}
+    checks: {"kafka": True, "servicenow": False, "llm": True}
+    returns: {"status": "ok"} or {"status": "degraded", "unavailable": ["servicenow"]}
     """
     unavailable = [name for name, ok in checks.items() if not ok]
     if not unavailable:

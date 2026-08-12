@@ -28,6 +28,8 @@ import httpx
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from shared.probes import probe_http
+from shared.utils import build_deps, normalize_session_id, utc_now
 
 from .chat import build_chat_context, call_model, format_chat_reply
 from .config import (
@@ -43,8 +45,6 @@ from .config import (
 )
 from .kafka import AnomaliesConsumer
 from .models import EnrichedAnomaly, ModelSource
-from .probes import probe_http
-from .utils import build_deps, normalize_session_id, utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -120,7 +120,7 @@ async def ready(request: Request):
     """
     checks: dict[str, bool] = {"kafka": request.app.state.kafka_consumer.is_connected}
 
-    llm_probe = await probe_http(MODEL_API_URL, timeout=2.0)
+    llm_probe = await probe_http(MODEL_API_URL, timeout=2.0, verify=SSL_VERIFY)
     checks["llm"] = llm_probe["reachable"]
 
     return {"status": "ready", "checks": checks}

@@ -1,4 +1,4 @@
-"""HTTP health probes for MCP servers and ServiceNow."""
+"""ServiceNow incident query."""
 
 from __future__ import annotations
 
@@ -15,22 +15,6 @@ from .config import (
 )
 
 logger = logging.getLogger(__name__)
-
-
-async def probe_http(url: str, timeout: float = 4.0) -> dict[str, Any]:
-    """Probe a service endpoint. Treats 200/401/403/404/405 as reachable."""
-    try:
-        async with httpx.AsyncClient(timeout=timeout, verify=SSL_VERIFY) as client:
-            resp = await client.get(url)
-            reachable = resp.status_code in {200, 401, 403, 404, 405}
-            return {
-                "status": "up" if reachable else f"http-{resp.status_code}",
-                "http_code": resp.status_code,
-                "reachable": reachable,
-            }
-    except Exception:
-        logger.debug("Probe failed for %s", url, exc_info=True)
-        return {"status": "down", "http_code": None, "reachable": False}
 
 
 async def fetch_servicenow_incident_count() -> tuple[int, dict[str, Any]]:

@@ -67,7 +67,7 @@ Liveness probe. Always returns 200.
 ```
 
 ### `GET /ready`
-Readiness probe. Always returns 200 (the BFF gracefully degrades when deps are down). Reports dependency connectivity as informational data.
+Readiness probe. Always returns 200 (the BFF gracefully degrades when deps are down). Reports dependency connectivity as informational data. The Kafka check runs off the event loop (`asyncio.to_thread`) so it can't block other requests while it runs.
 ```json
 {"status": "ready", "checks": {"kafka": true, "servicenow": true}}
 ```
@@ -189,12 +189,19 @@ The `contracts/` directory at the repo root contains JSON Schema definitions for
 hub/chatbot-service/src/chatbot_service/
 ├── __init__.py    # FastAPI app, endpoints, caching
 ├── config.py      # Env vars, probe targets, constants
-├── probes.py      # HTTP health probing, ServiceNow query
+├── probes.py      # ServiceNow query (generic HTTP probing lives in the shared package)
 ├── kafka.py       # Audit consumer, demo event producer
 ├── slo.py         # SLO metrics, incident timeline, business impact
 ├── chat.py        # LLM prompt building, model call, fallback
-└── utils.py       # Shared helpers (get_mcp_items, parse_iso, etc.)
+└── utils.py       # Service-specific helpers (get_mcp_items, parse_iso)
 ```
+
+Domain-free infra helpers (`utc_now`, `normalize_session_id`, `build_deps`, `probe_http`) live in
+[`hub/shared`](../hub/shared/) (`shared.utils` / `shared.probes`), a local package (via a `uv`
+path source) shared with `ran-chatbot-service` — as well as `ran-anomaly-detector`,
+`ran-rca-service`, and `agent-service`, which depend on other modules of the same package
+(`shared.kafka.TopicConsumer`, `shared.rag.RagClient`) — so bug fixes to these helpers don't need
+to be duplicated across services.
 
 ---
 

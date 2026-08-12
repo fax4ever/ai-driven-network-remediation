@@ -316,8 +316,14 @@ uv run pytest                        # full test suite
 natural language ("What's wrong with cell 42?") instead of reading raw JSON. It follows the same
 pattern as the existing NOC chatbot (`hub/chatbot-service`) built for Workflow 1, but is a fully
 independent service: different codebase, different Kafka topics, different persona/prompt, its
-own `enabled` toggle in Helm — it shares no runtime code path with `hub/chatbot-service`,
-`ran-anomaly-detector`, or `ran-rca-service`.
+own `enabled` toggle in Helm — it shares no domain/runtime code path with `hub/chatbot-service`,
+`ran-anomaly-detector`, or `ran-rca-service`. The two chatbot services do share one thing: a
+handful of domain-free infrastructure helpers (`utc_now`, `normalize_session_id`, `build_deps`,
+`probe_http`, in `shared.utils`/`shared.probes`) factored out into [`hub/shared`](../hub/shared/),
+a local package depended on via a `uv` path source, so fixes to that plumbing aren't duplicated
+across services. `ran-anomaly-detector` and `ran-rca-service` depend on the same `hub/shared`
+package for its Kafka consumer (`shared.kafka.TopicConsumer`) and RAG client
+(`shared.rag.RagClient`) modules.
 
 It is deliberately a **thin channel layer**: it does not detect anomalies or perform root cause
 analysis itself. All of that domain logic lives upstream — `ran-anomaly-detector` (detection) and
