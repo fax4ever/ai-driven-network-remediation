@@ -1,0 +1,78 @@
+{{- if .Values.nginx.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.nginx.name }}
+  namespace: {{ include "adnr-edge.namespace" . }}
+  labels:
+    {{- include "adnr-edge.labels" . | nindent 4 }}
+    app: {{ .Values.nginx.name }}
+spec:
+  replicas: {{ .Values.nginx.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.nginx.name }}
+      {{- include "adnr-edge.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.nginx.name }}
+        {{- include "adnr-edge.selectorLabels" . | nindent 8 }}
+        adnr.io/site-id: {{ required "siteId is required (e.g. edge-01)" .Values.siteId | quote }}
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nginx
+          image: "{{ .Values.nginx.image.repository }}:{{ .Values.nginx.image.tag }}"
+          imagePullPolicy: {{ .Values.nginx.image.pullPolicy }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+          ports:
+            - name: http
+              containerPort: {{ .Values.nginx.ports.http }}
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.nginx.resources | nindent 12 }}
+          # Official nginx image needs writable cache/run dirs under OpenShift SCC.
+          volumeMounts:
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+            - name: nginx-conf-d
+              mountPath: /etc/nginx/conf.d
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+        - name: nginx-conf-d
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.nginx.name }}
+  namespace: {{ include "adnr-edge.namespace" . }}
+  labels:
+    {{- include "adnr-edge.labels" . | nindent 4 }}
+    app: {{ .Values.nginx.name }}
+spec:
+  selector:
+    app: {{ .Values.nginx.name }}
+    {{- include "adnr-edge.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: {{ .Values.nginx.ports.http }}
+      targetPort: http
+      protocol: TCP
+{{- end }}

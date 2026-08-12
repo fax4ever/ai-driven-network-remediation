@@ -16,6 +16,20 @@ global:
     enabled: true
 
 # ══════════════════════════════════════════════════════════════════════
+# Multi-cluster topology (CLUSTER_COUNT)
+# ══════════════════════════════════════════════════════════════════════
+# clusterCount=1 → single-cluster (spokes empty).
+# clusterCount=N (N>=2) → hub-spoke with N spokes; spokes populated from
+# hub/helm/spokes.generated.yaml (gitignored, produced by make render-spokes).
+topology:
+  clusterCount: 1
+  deploymentMode: single-cluster  # or hub-spoke
+  spokeCount: 0
+  edgeNamespace: dark-noc-edge
+  spokeNamePrefix: edge-site
+  spokes: []
+
+# ══════════════════════════════════════════════════════════════════════
 # Remote subcharts
 # ══════════════════════════════════════════════════════════════════════
 
@@ -51,7 +65,15 @@ llama-stack:
       name: cache
   initContainers:
     enabled: true
-  resources: {}
+  # Operator default is 1 CPU / 1Gi when omitted. That often fails to schedule on
+  # ACM hubs where workers are already near full on requests. Keep this modest
+  # so helm --wait can succeed; raise if you have spare capacity.
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      memory: 2Gi
   pgvector:
     enabled: true
   mcp-servers:
@@ -246,8 +268,11 @@ servicenowMock:
     tag: "0.1.0"
 
 # ══════════════════════════════════════════════════════════════════════
-# Edge RBAC hook (pre-install Job)
+# Edge RBAC hook (pre-install Job) — single-cluster only
 # ══════════════════════════════════════════════════════════════════════
+# Enabled via Makefile when ROUTES_ENABLED=true and CLUSTER_COUNT=1.
+# Forced off when topology.deploymentMode=hub-spoke (real spokes use
+# multi-cluster-creds-job + per-spoke kubeconfig secrets instead).
 
 edgeRbac:
   enabled: false
@@ -255,6 +280,22 @@ edgeRbac:
   edgeNamespace: "hub"
   edgeApiServer: "https://kubernetes.default.svc"
   image: "image-registry.openshift-image-registry.svc:5000/openshift/cli:latest"
+
+# ══════════════════════════════════════════════════════════════════════
+# Multi-cluster MCP kubeconfig Job (hub-spoke only)
+# ══════════════════════════════════════════════════════════════════════
+# When topology.deploymentMode=hub-spoke, a pre-install Job builds one
+# kubeconfig secret per spoke (noc-openshift-kubeconfig-<spoke-name>)
+# via ACM cluster-proxy (Hive admin-kubeconfig fallback).
+# Proxy kubeconfigs use tokenFile (MCP pod SA); C7 must wait for ManagedClusters
+# before helm-install. Per-spoke ClusterPermission grants hub MCP SA spoke API
+# access through the proxy. TLS skip defaults on for lab; pin CA via insecureSkipTlsVerify.
+
+multiClusterCreds:
+  image: "image-registry.openshift-image-registry.svc:5000/openshift/cli:latest"
+  serviceAccountName: mcp-noc-openshift
+  # Lab default: skip TLS verify against cluster-proxy. Set false and pin CA for non-lab.
+  insecureSkipTlsVerify: true
 
 # ══════════════════════════════════════════════════════════════════════
 # AAP Credential hook (post-install Job)
@@ -367,6 +408,7 @@ frontend:
 agentService:
   replicaCount: 1
   granite:
+    # make helm-install overrides this to adnr-llm/<ADNR_LLM_ID> when LLM env is set.
     modelName: "granite-4.0-8b"
   lightspeed:
     url: ""
@@ -413,7 +455,9 @@ agentService:
 # ══════════════════════════════════════════════════════════════════════
 
 ranAnomalyDetector:
-  enabled: true
+  # Off by default until the image is published for the selected VERSION.
+  # Enable via ENABLE_RAN_ANOMALY=true (make) or --set ranAnomalyDetector.enabled=true.
+  enabled: false
   replicaCount: 1
   env:
     kafkaBootstrap: "kafka:9092"
