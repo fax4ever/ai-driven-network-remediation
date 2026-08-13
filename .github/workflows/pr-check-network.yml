@@ -18,4 +18,5 @@ jobs:
       suite_name: network
       enable_network_remediation: true
       enable_telco_oran: false
+      make_target: network-integration-tests
     secrets: inherit

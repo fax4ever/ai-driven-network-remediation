@@ -18,4 +18,5 @@ jobs:
       suite_name: Telco ORAN
       enable_telco_oran: true
       enable_network_remediation: false
+      make_target: telco-integration-tests
     secrets: inherit

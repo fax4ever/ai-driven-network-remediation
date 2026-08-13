@@ -8,15 +8,20 @@ on:
         required: true
         type: string
       enable_telco_oran:
-        description: Deploy and test the Telco/O-RAN use case.
+        description: Deploy the Telco/O-RAN use case.
         required: false
         default: true
         type: boolean
       enable_network_remediation:
-        description: Deploy and test the network-remediation use case.
+        description: Deploy the network-remediation use case.
         required: false
         default: true
         type: boolean
+      make_target:
+        description: Make target to run for integration tests.
+        required: false
+        default: integration-tests
+        type: string
 
 jobs:
   trust-gate:
@@ -93,10 +98,7 @@ jobs:
         uses: astral-sh/setup-uv@v6
 
       - name: Run ${{ inputs.suite_name }} integration tests
-        env:
-          ENABLE_TELCO_ORAN: ${{ inputs.enable_telco_oran }}
-          ENABLE_NETWORK_REMEDIATION: ${{ inputs.enable_network_remediation }}
-        run: make integration-tests
+        run: make ${{ inputs.make_target }}
 
       - name: Collect ingestion-pipeline diagnostics
         if: failure()
