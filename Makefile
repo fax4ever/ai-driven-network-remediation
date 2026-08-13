@@ -142,20 +142,28 @@ MINIO_PORT             ?= 9000
 AAP_MOCK_IMG           := $(REGISTRY)/noc-aap-mock:$(VERSION)
 SERVICENOW_MOCK_IMG    := $(REGISTRY)/noc-servicenow-mock:$(VERSION)
 
-CORE_BUILD_PUSH_IMAGES := \
-	$(CHATBOT_IMG) \
+SHARED_IMAGES := \
 	$(INGESTION_IMG) \
-	$(AGENT_IMG) \
-	$(RAN_ANOMALY_IMG) \
-	$(RAN_RCA_IMG) \
-	$(RAN_CHATBOT_IMG) \
-	$(RAN_FRONTEND_IMG) \
-	$(FRONTEND_IMG) \
 	$(MCP_OPENSHIFT_IMG) \
 	$(MCP_LOKISTACK_IMG) \
 	$(MCP_KAFKA_IMG) \
 	$(MCP_AAP_IMG) \
 	$(MCP_SERVICENOW_IMG)
+
+NETWORK_IMAGES := \
+	$(CHATBOT_IMG) \
+	$(AGENT_IMG) \
+	$(FRONTEND_IMG)
+
+TELCO_IMAGES := \
+	$(RAN_ANOMALY_IMG) \
+	$(RAN_RCA_IMG) \
+	$(RAN_CHATBOT_IMG)
+
+CORE_BUILD_PUSH_IMAGES := \
+	$(SHARED_IMAGES) \
+	$(if $(filter true,$(ENABLE_NETWORK_REMEDIATION)),$(NETWORK_IMAGES)) \
+	$(if $(filter true,$(ENABLE_TELCO_ORAN)),$(TELCO_IMAGES))
 
 EXTRA_BUILD_PUSH_IMAGES := \
 	$(AAP_MOCK_IMG) \
@@ -592,12 +600,17 @@ edge-rbac-teardown:
 # ══════════════════════════════════════════════════════════════════════
 
 .PHONY: build-all-images
-build-all-images: build-chatbot-image build-agent-image build-ran-anomaly-image build-ran-rca-image build-ran-chatbot-image build-ran-frontend-image build-frontend-image build-mcp-images
+build-all-images: build-ingestion-image build-mcp-images \
+	$(if $(filter true,$(ENABLE_NETWORK_REMEDIATION)),build-chatbot-image build-agent-image build-frontend-image) \
+	$(if $(filter true,$(ENABLE_TELCO_ORAN)),build-ran-anomaly-image build-ran-rca-image build-ran-chatbot-image)
+
+.PHONY: build-ingestion-image
+build-ingestion-image:
+	$(CONTAINER_TOOL) build -t $(INGESTION_IMG) --platform=$(ARCH) -f hub/ingestion-pipeline/Containerfile hub/ingestion-pipeline
 
 .PHONY: build-chatbot-image
 build-chatbot-image:
 	$(CONTAINER_TOOL) build -t $(CHATBOT_IMG) --platform=$(ARCH) -f $(CHATBOT_CONTAINERFILE) $(CHATBOT_CONTEXT)
-	$(CONTAINER_TOOL) build -t $(INGESTION_IMG) --platform=$(ARCH) -f hub/ingestion-pipeline/Containerfile hub/ingestion-pipeline
 
 .PHONY: build-agent-image
 build-agent-image:
