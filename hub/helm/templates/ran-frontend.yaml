@@ -1,4 +1,4 @@
-{{- if .Values.ranFrontend.enabled }}
+{{- if and .Values.global.telcoOran.enabled .Values.ranFrontend.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

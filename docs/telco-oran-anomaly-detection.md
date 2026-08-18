@@ -490,12 +490,12 @@ Two scenarios, using reserved `cell_id`s (`9001`/`9002`) so demo data is unmista
 | `low_signal` (default) | `LowRsrp` only | `9001` |
 | `cell_outage` | `CellOutage` + `LowRsrp` + `SinrDegradation` (independently RCA'd, so they land staggered over ~45-60s) | `9002` |
 
-**Prerequisite:** `ranAnomalyDetector.enabled` and `ranFrontend.enabled` both default to `false` on
-fresh installs (the images aren't always published for the selected `VERSION`, and there's no
-point deploying the webapp without the pipeline behind it — it would just show an empty dashboard
-with a demo trigger that has no visible effect). `ENABLE_RAN_ANOMALY=true` via Make enables both
-together; via raw Helm, set both explicitly: `--set ranAnomalyDetector.enabled=true --set
-ranFrontend.enabled=true`.
+**Prerequisite:** the RAN anomaly pipeline (`ranAnomalyDetector`, `ranRcaService`,
+`ranChatbotService`) and this webapp (`ranFrontend`) are all part of the Telco/O-RAN use case and
+are enabled by default via `global.telcoOran.enabled`. They deploy together whenever Telco/O-RAN is
+on (`ENABLE_TELCO_ORAN=true`, the default, via Make; or `--set global.telcoOran.enabled=true` via
+raw Helm) and are skipped entirely when it's off. To toggle a single service without disabling the
+whole use case, override its own flag, e.g. `--set ranFrontend.enabled=false`.
 
 See [`docs/RAN-DEMO-SCRIPT.md`](RAN-DEMO-SCRIPT.md) for a full recording walkthrough (voiceover,
 timing, troubleshooting) covering both scenarios.

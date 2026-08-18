@@ -90,8 +90,8 @@ unmistakably synthetic in the UI:
 | `cell_outage` | `CellOutage` + `LowRsrp` + `SinrDegradation` | All three fire off one reading; each gets its own RCA pass, so expect them to appear over ~45-60s, not all at once |
 
 **Prerequisite:** `ran-anomaly-detector` must actually be running for the trigger to have any
-downstream effect (`ranAnomalyDetector.enabled` in Helm, off by default on fresh installs — see
-`docs/RAN-DEMO-SCRIPT.md`).
+downstream effect (`ranAnomalyDetector.enabled` in Helm, on by default as part of the Telco/O-RAN
+use case — see `docs/RAN-DEMO-SCRIPT.md`).
 
 ## Usage
 
