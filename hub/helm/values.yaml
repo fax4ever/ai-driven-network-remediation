@@ -7,7 +7,7 @@ image:
   ranAnomalyDetector: hub-ran-anomaly-detector
   ranRcaService: hub-ran-rca-service
   ranChatbotService: hub-ran-chatbot-service
-  ranFrontend: hub-ran-frontend
+  ranFrontend: noc-ran-frontend
   frontend: noc-frontend
   pullPolicy: Always
   tag: "0.0.1"
