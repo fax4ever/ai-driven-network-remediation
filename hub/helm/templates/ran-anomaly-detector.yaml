@@ -1,4 +1,4 @@
-{{- if .Values.ranAnomalyDetector.enabled }}
+{{- if and .Values.global.telcoOran.enabled .Values.ranAnomalyDetector.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:

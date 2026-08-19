@@ -17,6 +17,8 @@ import time
 import httpx
 import pytest
 
+pytestmark = pytest.mark.network
+
 # Demo scenarios without _overrides invoke Granite LLM analysis and can exceed the
 # agent graph timeout in CI before audit_node runs. lightspeed embeds confidence overrides.
 _DEMO_SCENARIO = "lightspeed"

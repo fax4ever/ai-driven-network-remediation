@@ -3,7 +3,7 @@ import subprocess
 import time
 
 import pytest
-from conftest import mcp_call
+from .conftest import mcp_call
 
 NAMESPACE = os.environ.get("NAMESPACE", "hub")
 _LOG_WAIT_TIMEOUT = int(os.environ.get("LOG_WAIT_TIMEOUT", "60"))

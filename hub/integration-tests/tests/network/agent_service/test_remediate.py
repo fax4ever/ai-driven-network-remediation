@@ -1,3 +1,8 @@
+import pytest
+
+pytestmark = pytest.mark.network
+
+
 INCIDENT_STATE_FIELDS = {
     "raw_event",
     "kafka_offset",

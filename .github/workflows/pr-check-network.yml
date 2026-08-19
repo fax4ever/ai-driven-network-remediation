@@ -1,0 +1,22 @@
+name: Network E2E Tests
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'  # Run daily at 2 AM UTC
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  network-e2e-tests:
+    uses: ./.github/workflows/pr-check-common.yml
+    with:
+      suite_name: network
+      enable_network_remediation: true
+      enable_telco_oran: false
+      make_target: network-integration-tests
+    secrets: inherit

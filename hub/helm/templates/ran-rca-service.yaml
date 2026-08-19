@@ -1,4 +1,4 @@
-{{- if .Values.ranRcaService.enabled }}
+{{- if and .Values.global.telcoOran.enabled .Values.ranRcaService.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
