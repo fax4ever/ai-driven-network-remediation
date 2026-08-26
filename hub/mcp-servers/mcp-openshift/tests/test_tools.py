@@ -8,6 +8,7 @@ from mcp_openshift.tools import (
     _find_pod,
     _is_not_found,
     _run_oc,
+    get_deployment,
     get_events,
     get_namespaces,
     get_pod_logs,
@@ -437,6 +438,44 @@ class TestFindPod:
         pod, error = _find_pod("app", "prod", "/kc")
         assert pod is None
         assert "failed to parse" in error
+
+
+@patch("mcp_openshift.tools._run_oc")
+class TestGetDeployment:
+    def test_success_returns_annotations(self, mock_oc):
+        mock_oc.return_value = {
+            "stdout": '{"metadata": {"annotations": {"adnr.io/fast-path-last-heal": "2026-08-18T12:00:00Z"}}}',
+            "stderr": "",
+            "returncode": 0,
+            "success": True,
+        }
+        result = get_deployment(deployment="edge-nginx", namespace="dark-noc-edge")
+        assert result["success"] is True
+        assert result["annotations"]["adnr.io/fast-path-last-heal"] == "2026-08-18T12:00:00Z"
+
+    def test_template_annotations_are_merged(self, mock_oc):
+        mock_oc.return_value = {
+            "stdout": (
+                '{"metadata": {"annotations": {"argocd.argoproj.io/tracking-id": "x"}},'
+                '"spec": {"template": {"metadata": {"annotations":'
+                '{"adnr.io/fast-path-last-heal": "2026-08-18T12:00:00Z"}}}}}'
+            ),
+            "stderr": "",
+            "returncode": 0,
+            "success": True,
+        }
+        result = get_deployment(deployment="edge-nginx", namespace="dark-noc-edge")
+        assert result["annotations"]["adnr.io/fast-path-last-heal"] == "2026-08-18T12:00:00Z"
+
+    def test_failure(self, mock_oc):
+        mock_oc.return_value = {
+            "stdout": "",
+            "stderr": "not found",
+            "returncode": 1,
+            "success": False,
+        }
+        result = get_deployment(deployment="missing")
+        assert result["success"] is False
 
 
 @patch("mcp_openshift.tools._run_oc")

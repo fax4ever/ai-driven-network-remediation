@@ -157,3 +157,25 @@ def test_defaults_render_nginx_only():
     rendered = _helm_template()
     assert "kind: Deployment" in rendered
     assert "name: edge-nginx" in rendered
+
+
+def test_fast_path_healer_enabled_renders_runner_and_watcher():
+    rendered = _helm_template("fastPathHealer.enabled=true")
+    assert "name: edge-fast-path-runner" in rendered
+    assert "name: edge-fast-path-watcher" in rendered
+    assert "EDGE_SITE_ID" in rendered
+    assert 'value: "edge-site-01"' in rendered
+    assert "kind: NetworkPolicy" in rendered
+    assert "noc-edge-fast-path-healer:0.1.5" in rendered
+    assert "noc-edge-fast-path-healer:0.1.0" not in rendered
+    assert "0.1.6-fast-path" not in rendered
+    assert "EDGE_COOLDOWN_SECONDS" in rendered
+    assert "cpu: 10m" in rendered
+    assert "memory: 32Mi" in rendered
+    assert "resourceNames" in rendered
+    assert "edge-nginx" in rendered
+
+
+def test_fast_path_healer_disabled_renders_no_runner():
+    rendered = _helm_template("fastPathHealer.enabled=false")
+    assert "edge-fast-path-runner" not in rendered

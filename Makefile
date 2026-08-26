@@ -147,6 +147,7 @@ MINIO_PORT             ?= 9000
 # ── AAP / ServiceNow Mock images ──────────────────────────────────
 AAP_MOCK_IMG           := $(REGISTRY)/noc-aap-mock:$(VERSION)
 SERVICENOW_MOCK_IMG    := $(REGISTRY)/noc-servicenow-mock:$(VERSION)
+EDGE_FAST_PATH_HEALER_IMG := $(REGISTRY)/noc-edge-fast-path-healer:$(VERSION)
 
 SHARED_IMAGES := \
 	$(INGESTION_IMG) \
@@ -167,9 +168,13 @@ TELCO_IMAGES := \
 	$(RAN_CHATBOT_IMG) \
 	$(RAN_FRONTEND_IMG)
 
+# Spoke-only. Built with network remediation, not hub shared services.
+EDGE_IMAGES := \
+	$(EDGE_FAST_PATH_HEALER_IMG)
+
 CORE_BUILD_PUSH_IMAGES := \
 	$(SHARED_IMAGES) \
-	$(if $(filter true,$(ENABLE_NETWORK_REMEDIATION)),$(NETWORK_IMAGES)) \
+	$(if $(filter true,$(ENABLE_NETWORK_REMEDIATION)),$(NETWORK_IMAGES) $(EDGE_IMAGES)) \
 	$(if $(filter true,$(ENABLE_TELCO_ORAN)),$(TELCO_IMAGES))
 
 EXTRA_BUILD_PUSH_IMAGES := \
@@ -621,7 +626,7 @@ edge-rbac-teardown:
 
 .PHONY: build-all-images
 build-all-images: build-ingestion-image build-mcp-images \
-	$(if $(filter true,$(ENABLE_NETWORK_REMEDIATION)),build-chatbot-image build-agent-image build-frontend-image) \
+	$(if $(filter true,$(ENABLE_NETWORK_REMEDIATION)),build-chatbot-image build-agent-image build-frontend-image build-edge-fast-path-healer-image) \
 	$(if $(filter true,$(ENABLE_TELCO_ORAN)),build-ran-anomaly-image build-ran-rca-image build-ran-chatbot-image build-ran-frontend-image)
 
 .PHONY: build-ingestion-image
@@ -663,6 +668,14 @@ build-mcp-images:
 	$(CONTAINER_TOOL) build -t $(MCP_KAFKA_IMG)      --platform=$(ARCH) --build-arg SERVICE_NAME=mcp-kafka      --build-arg MODULE_NAME=mcp_kafka      -f $(MCP_CONTAINERFILE) $(MCP_CONTEXT)
 	$(CONTAINER_TOOL) build -t $(MCP_AAP_IMG)        --platform=$(ARCH) --build-arg SERVICE_NAME=mcp-aap        --build-arg MODULE_NAME=mcp_aap        -f $(MCP_CONTAINERFILE) $(MCP_CONTEXT)
 	$(CONTAINER_TOOL) build -t $(MCP_SERVICENOW_IMG) --platform=$(ARCH) --build-arg SERVICE_NAME=mcp-servicenow --build-arg MODULE_NAME=mcp_servicenow -f $(MCP_CONTAINERFILE) $(MCP_CONTEXT)
+
+.PHONY: build-edge-fast-path-healer-image
+build-edge-fast-path-healer-image:
+	$(CONTAINER_TOOL) build --platform=$(ARCH) -f edge/fast-path-healer/Containerfile -t $(EDGE_FAST_PATH_HEALER_IMG) edge/
+
+.PHONY: push-edge-fast-path-healer-image
+push-edge-fast-path-healer-image:
+	$(CONTAINER_TOOL) push $(EDGE_FAST_PATH_HEALER_IMG)
 
 .PHONY: push-all-images
 push-all-images:
@@ -799,6 +812,7 @@ unit-tests:
 	cd hub/ran-anomaly-detector && uv sync --group dev && uv run pytest
 	cd hub/ran-rca-service && uv sync --group dev && uv run pytest
 	cd hub/ran-chatbot-service && uv sync --group dev && uv run pytest
+	cd edge/fast-path-healer && uv sync --group dev && uv run pytest
 
 # Offline multi-cluster template / dry-run tests (no live ACM). C8.
 # helm-depend is required: hub template tests need Chart.yaml deps (pgvector,

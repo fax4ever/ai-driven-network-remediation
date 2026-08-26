@@ -29,6 +29,7 @@ def test_appproject_restricts_edge_destinations_and_resources():
     assert "kind: ClusterRoleBinding" in text
     assert "kind: ClusterLogForwarder" in text
     assert "kind: Deployment" in text
+    assert "kind: NetworkPolicy" in text
     assert "sourceRepos:" in text
     assert 'name: "*"' in text
 
@@ -52,3 +53,8 @@ def test_applicationset_list_generator_and_site_id_params():
     assert 'name: "{{.name}}"' in text
     assert "resources-finalizer.argocd.argoproj.io" in text
     assert "project: adnr-edge" in text
+    assert "RespectIgnoreDifferences=true" in text
+    assert "name: edge-nginx" in text
+    assert "/spec/template/spec/containers/0/resources" in text
+    assert "/metadata/annotations" in text
+    assert "/spec/template/metadata/annotations" in text
