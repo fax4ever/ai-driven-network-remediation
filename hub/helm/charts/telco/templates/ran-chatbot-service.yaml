@@ -1,21 +1,21 @@
-{{- if and .Values.global.telcoOran.enabled .Values.ranChatbotService.enabled }}
+{{- if .Values.ranChatbotService.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "hub.fullname" . }}-ran-chatbot-service
+  name: {{ include "telco.fullname" . }}-ran-chatbot-service
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "telco.labels" . | nindent 4 }}
     app.kubernetes.io/component: ran-chatbot-service
 spec:
   replicas: {{ .Values.ranChatbotService.replicaCount }}
   selector:
     matchLabels:
-      {{- include "hub.selectorLabels" . | nindent 6 }}
+      {{- include "telco.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: ran-chatbot-service
   template:
     metadata:
       labels:
-        {{- include "hub.labels" . | nindent 8 }}
+        {{- include "telco.labels" . | nindent 8 }}
         app.kubernetes.io/component: ran-chatbot-service
     spec:
       containers:
@@ -49,9 +49,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "hub.fullname" . }}-ran-chatbot-service
+  name: {{ include "telco.fullname" . }}-ran-chatbot-service
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "telco.labels" . | nindent 4 }}
     app.kubernetes.io/component: ran-chatbot-service
 spec:
   type: {{ .Values.ranChatbotService.service.type }}
@@ -61,6 +61,6 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "hub.selectorLabels" . | nindent 4 }}
+    {{- include "telco.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: ran-chatbot-service
 {{- end }}

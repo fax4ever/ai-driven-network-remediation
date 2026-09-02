@@ -1,21 +1,21 @@
-{{- if and .Values.global.telcoOran.enabled .Values.ranAnomalyDetector.enabled }}
+{{- if .Values.ranAnomalyDetector.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "hub.fullname" . }}-ran-anomaly-detector
+  name: {{ include "telco.fullname" . }}-ran-anomaly-detector
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "telco.labels" . | nindent 4 }}
     app.kubernetes.io/component: ran-anomaly-detector
 spec:
   replicas: {{ .Values.ranAnomalyDetector.replicaCount }}
   selector:
     matchLabels:
-      {{- include "hub.selectorLabels" . | nindent 6 }}
+      {{- include "telco.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: ran-anomaly-detector
   template:
     metadata:
       labels:
-        {{- include "hub.labels" . | nindent 8 }}
+        {{- include "telco.labels" . | nindent 8 }}
         app.kubernetes.io/component: ran-anomaly-detector
     spec:
       containers:
@@ -53,9 +53,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "hub.fullname" . }}-ran-anomaly-detector
+  name: {{ include "telco.fullname" . }}-ran-anomaly-detector
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "telco.labels" . | nindent 4 }}
     app.kubernetes.io/component: ran-anomaly-detector
 spec:
   type: {{ .Values.ranAnomalyDetector.service.type }}
@@ -65,6 +65,6 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "hub.selectorLabels" . | nindent 4 }}
+    {{- include "telco.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: ran-anomaly-detector
 {{- end }}

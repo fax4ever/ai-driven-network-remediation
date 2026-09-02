@@ -5,10 +5,10 @@
   a spoke ServiceAccount subject). Mirrors the mcp-noc-openshift ClusterPermission
   in multi-cluster-creds-job.yaml (same pattern, broader resource scope).
 */}}
-{{- if and (eq .Values.topology.deploymentMode "hub-spoke") (gt (len .Values.topology.spokes) 0) .Values.aapCredential.enabled .Values.aapCredential.multicluster.enabled }}
+{{- if and (eq .Values.global.topology.deploymentMode "hub-spoke") (gt (len .Values.global.topology.spokes) 0) .Values.aapCredential.enabled .Values.aapCredential.multicluster.enabled }}
 {{- $saNs := .Values.aapCredential.multicluster.hubServiceAccountNamespace }}
 {{- $saName := .Values.aapCredential.multicluster.hubServiceAccountName }}
-{{- range .Values.topology.spokes }}
+{{- range .Values.global.topology.spokes }}
 ---
 apiVersion: rbac.open-cluster-management.io/v1alpha1
 kind: ClusterPermission
@@ -16,10 +16,10 @@ metadata:
   # -edit suffix: ClusterRoleBinding roleRef is immutable, so switching from an older
   # inline-role binding requires a new resource name. helm then deletes the old
   # ClusterPermission and ACM recreates the spoke binding against `edit` cleanly.
-  name: {{ include "hub.fullname" $ }}-aap-integration-edit
+  name: {{ include "network.fullname" $ }}-aap-integration-edit
   namespace: {{ .name }}
   labels:
-    {{- include "hub.labels" $ | nindent 4 }}
+    {{- include "network.labels" $ | nindent 4 }}
 spec:
   # Demo tradeoff: `edit` is broader than strictly needed (includes delete and
   # namespaced secrets). A production deployment should bind a custom ClusterRole

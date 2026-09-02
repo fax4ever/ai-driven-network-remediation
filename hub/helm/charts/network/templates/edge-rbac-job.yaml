@@ -2,13 +2,13 @@
   Same-cluster edge RBAC is only valid in single-cluster mode.
   Hub-spoke uses multi-cluster-creds-job (ACM cluster proxy) instead.
 */}}
-{{- if and .Values.edgeRbac.enabled (ne .Values.topology.deploymentMode "hub-spoke") }}
+{{- if and .Values.edgeRbac.enabled (ne .Values.global.topology.deploymentMode "hub-spoke") }}
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "hub.fullname" . }}-edge-rbac
+  name: {{ include "network.fullname" . }}-edge-rbac
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-5"
@@ -21,7 +21,7 @@ spec:
         app: edge-rbac-setup
     spec:
       restartPolicy: OnFailure
-      serviceAccountName: {{ include "hub.fullname" . }}-edge-rbac
+      serviceAccountName: {{ include "network.fullname" . }}-edge-rbac
       containers:
         - name: setup
           image: {{ .Values.edgeRbac.image | default "image-registry.openshift-image-registry.svc:5000/openshift/cli:latest" }}

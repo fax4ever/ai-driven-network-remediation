@@ -6,7 +6,7 @@ metadata:
   name: allow-{{ .Release.Namespace }}-to-lightspeed
   namespace: {{ .Values.agentService.lightspeed.namespace | default "aap" }}
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
 spec:
   podSelector:
     matchLabels:

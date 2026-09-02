@@ -1,21 +1,21 @@
-{{- if and .Values.global.networkRemediation.enabled .Values.chatbotService.enabled }}
+{{- if .Values.chatbotService.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "hub.fullname" . }}-chatbot-service
+  name: {{ include "network.fullname" . }}-chatbot-service
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
     app.kubernetes.io/component: chatbot-service
 spec:
   replicas: {{ .Values.chatbotService.replicaCount }}
   selector:
     matchLabels:
-      {{- include "hub.selectorLabels" . | nindent 6 }}
+      {{- include "network.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: chatbot-service
   template:
     metadata:
       labels:
-        {{- include "hub.labels" . | nindent 8 }}
+        {{- include "network.labels" . | nindent 8 }}
         app.kubernetes.io/component: chatbot-service
     spec:
       containers:
@@ -63,9 +63,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "hub.fullname" . }}-chatbot-service
+  name: {{ include "network.fullname" . }}-chatbot-service
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
     app.kubernetes.io/component: chatbot-service
 spec:
   type: {{ .Values.chatbotService.service.type }}
@@ -75,6 +75,6 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "hub.selectorLabels" . | nindent 4 }}
+    {{- include "network.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: chatbot-service
 {{- end }}

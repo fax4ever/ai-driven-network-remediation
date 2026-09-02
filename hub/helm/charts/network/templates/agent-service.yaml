@@ -1,21 +1,21 @@
-{{- if and .Values.global.networkRemediation.enabled .Values.agentService.enabled }}
+{{- if .Values.agentService.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "hub.fullname" . }}-agent-service
+  name: {{ include "network.fullname" . }}-agent-service
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
     app.kubernetes.io/component: agent-service
 spec:
   replicas: {{ .Values.agentService.replicaCount }}
   selector:
     matchLabels:
-      {{- include "hub.selectorLabels" . | nindent 6 }}
+      {{- include "network.selectorLabels" . | nindent 6 }}
       app.kubernetes.io/component: agent-service
   template:
     metadata:
       labels:
-        {{- include "hub.labels" . | nindent 8 }}
+        {{- include "network.labels" . | nindent 8 }}
         app.kubernetes.io/component: agent-service
     spec:
       {{- if .Values.agentService.waitForDeps }}
@@ -27,7 +27,7 @@ spec:
             - |
               retries=0
               max_retries=36
-              until curl -sf http://{{ index .Values "llama-stack" "host" }}:{{ index .Values "llama-stack" "port" }}/v1/models; do
+              until curl -sf http://{{ .Values.global.llamastack.host }}:{{ .Values.global.llamastack.port }}/v1/models; do
                 retries=$((retries + 1))
                 if [ $retries -ge $max_retries ]; then
                   echo "LlamaStack not ready after $max_retries attempts — giving up"
@@ -43,9 +43,9 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           env:
             - name: LLAMASTACK_HOST
-              value: {{ index .Values "llama-stack" "host" | quote }}
+              value: {{ .Values.global.llamastack.host | quote }}
             - name: LLAMASTACK_PORT
-              value: {{ index .Values "llama-stack" "port" | quote }}
+              value: {{ .Values.global.llamastack.port | quote }}
             - name: GRANITE_MODEL_NAME
               value: {{ .Values.agentService.granite.modelName | quote }}
             - name: KAFKA_BOOTSTRAP
@@ -120,9 +120,9 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "hub.fullname" . }}-agent-service
+  name: {{ include "network.fullname" . }}-agent-service
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
     app.kubernetes.io/component: agent-service
 spec:
   type: {{ .Values.agentService.service.type }}
@@ -132,6 +132,6 @@ spec:
       protocol: TCP
       name: http
   selector:
-    {{- include "hub.selectorLabels" . | nindent 4 }}
+    {{- include "network.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: agent-service
 {{- end }}

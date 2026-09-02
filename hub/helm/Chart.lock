@@ -8,6 +8,12 @@ dependencies:
 - name: mcp-servers
   repository: https://rh-ai-quickstart.github.io/ai-architecture-charts
   version: 0.5.17
+- name: telco
+  repository: file://charts/telco
+  version: 0.0.1
+- name: network
+  repository: file://charts/network
+  version: 0.0.1
 - name: kafka
   repository: file://charts/kafka
   version: 0.1.0
@@ -20,5 +26,5 @@ dependencies:
 - name: lokistack
   repository: file://charts/lokistack
   version: 0.1.0
-digest: sha256:0ef43fa88c2c6365a83add508103d67cfd224ecc6916e5eb2fa5573fe0914339
-generated: "2026-07-28T17:32:19.650980208+03:00"
+digest: sha256:01b48d74049c74a4727390c02394b42cbd8dffdfae625321eb680825bc6f0dfc
+generated: "2026-09-02T16:25:17.973984307+02:00"

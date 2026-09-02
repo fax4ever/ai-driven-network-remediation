@@ -1,7 +1,7 @@
 {{- /* Hub-spoke only: per-spoke kubeconfigs for mcp-noc-openshift via ACM cluster-proxy. */ -}}
-{{- if and (eq .Values.topology.deploymentMode "hub-spoke") (gt (len .Values.topology.spokes) 0) }}
+{{- if and (eq .Values.global.topology.deploymentMode "hub-spoke") (gt (len .Values.global.topology.spokes) 0) }}
 {{- $mcpSA := .Values.multiClusterCreds.serviceAccountName | default "mcp-noc-openshift" }}
-{{- $credsSA := printf "%s-multi-cluster-creds" (include "hub.fullname" .) }}
+{{- $credsSA := printf "%s-multi-cluster-creds" (include "network.fullname" .) }}
 {{/*
   Permanent SA used by the mcp-noc-openshift Deployment.
   Proxy kubeconfigs reference tokenFile under this SA (auto-rotated); do not embed Job tokens.
@@ -12,14 +12,14 @@ metadata:
   name: {{ $mcpSA }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "hub.fullname" . }}-mcp-openshift-proxy-{{ .Release.Namespace }}
+  name: {{ include "network.fullname" . }}-mcp-openshift-proxy-{{ .Release.Namespace }}
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
 rules:
   - apiGroups: ["cluster.open-cluster-management.io"]
     resources: ["managedclusters"]
@@ -28,13 +28,13 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "hub.fullname" . }}-mcp-openshift-proxy-{{ .Release.Namespace }}
+  name: {{ include "network.fullname" . }}-mcp-openshift-proxy-{{ .Release.Namespace }}
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "hub.fullname" . }}-mcp-openshift-proxy-{{ .Release.Namespace }}
+  name: {{ include "network.fullname" . }}-mcp-openshift-proxy-{{ .Release.Namespace }}
 subjects:
   - kind: ServiceAccount
     name: {{ $mcpSA }}
@@ -47,15 +47,15 @@ subjects:
   after the pre-install creds Job, which still stores proxy kubeconfigs so runtime
   uses tokenFile + MCP SA.
 */}}
-{{- range .Values.topology.spokes }}
+{{- range .Values.global.topology.spokes }}
 ---
 apiVersion: rbac.open-cluster-management.io/v1alpha1
 kind: ClusterPermission
 metadata:
-  name: {{ include "hub.fullname" $ }}-mcp-openshift
+  name: {{ include "network.fullname" $ }}-mcp-openshift
   namespace: {{ .name }}
   labels:
-    {{- include "hub.labels" $ | nindent 4 }}
+    {{- include "network.labels" $ | nindent 4 }}
 spec:
   clusterRole:
     rules:
@@ -88,7 +88,7 @@ metadata:
   name: {{ $credsSA }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-10"
@@ -100,7 +100,7 @@ metadata:
   name: {{ $credsSA }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-10"
@@ -116,7 +116,7 @@ metadata:
   name: {{ $credsSA }}
   namespace: {{ .Release.Namespace }}
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-10"
@@ -135,7 +135,7 @@ kind: ClusterRole
 metadata:
   name: {{ $credsSA }}-{{ .Release.Namespace }}
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-10"
@@ -148,7 +148,7 @@ rules:
   - apiGroups: [""]
     resources: ["secrets"]
     resourceNames:
-    {{- range .Values.topology.spokes }}
+    {{- range .Values.global.topology.spokes }}
       - {{ printf "%s-admin-kubeconfig" .name | quote }}
       - {{ printf "%s-kubeconfig" .name | quote }}
     {{- end }}
@@ -162,7 +162,7 @@ kind: ClusterRoleBinding
 metadata:
   name: {{ $credsSA }}-{{ .Release.Namespace }}
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-10"
@@ -179,9 +179,9 @@ subjects:
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: {{ include "hub.fullname" . }}-multi-cluster-creds
+  name: {{ include "network.fullname" . }}-multi-cluster-creds
   labels:
-    {{- include "hub.labels" . | nindent 4 }}
+    {{- include "network.labels" . | nindent 4 }}
   annotations:
     "helm.sh/hook": pre-install,pre-upgrade
     "helm.sh/hook-weight": "-5"
@@ -205,11 +205,11 @@ spec:
               set -euo pipefail
 
               HUB_NAMESPACE="{{ .Release.Namespace }}"
-              EDGE_NAMESPACE="{{ .Values.topology.edgeNamespace | default "dark-noc-edge" }}"
+              EDGE_NAMESPACE="{{ .Values.global.topology.edgeNamespace | default "dark-noc-edge" }}"
               TOKEN_FILE="/var/run/secrets/kubernetes.io/serviceaccount/token"
               INSECURE_SKIP_TLS="{{ if hasKey .Values.multiClusterCreds "insecureSkipTlsVerify" }}{{ .Values.multiClusterCreds.insecureSkipTlsVerify }}{{ else }}true{{ end }}"
               SPOKES=(
-              {{- range .Values.topology.spokes }}
+              {{- range .Values.global.topology.spokes }}
                 {{ .name | quote }}
               {{- end }}
               )
