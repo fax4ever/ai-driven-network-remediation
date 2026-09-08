@@ -312,4 +312,3 @@ oc get pods -n $NAMESPACE
 - **Use case:** Automation, network operations
 - **Partner:** N/A
 - **Contributor org:** Red Hat
-
