@@ -192,7 +192,6 @@ ALL_BUILD_PUSH_IMAGES := \
 	$(CORE_BUILD_PUSH_IMAGES) \
 	$(EXTRA_BUILD_PUSH_IMAGES)
 
-ADNR_LLM_ENABLED := $(and $(ADNR_LLM_ID),$(ADNR_LLM_URL),$(ADNR_LLM_TOKEN))
 
 .PHONY: version
 version:
@@ -202,14 +201,15 @@ version:
 # Helm argument builders
 # ══════════════════════════════════════════════════════════════════════
 
-# LlamaStack registers models as <provider>/<id> (provider key is adnr-llm).
-# Agent analyze must use that full id, not the bare ADNR_LLM_ID.
 helm_adnr_llm_args = \
-	$(if $(ADNR_LLM_ENABLED),--set llama-stack.models.adnr-llm.enabled=true,) \
-	$(if $(ADNR_LLM_ENABLED),--set-string llama-stack.models.adnr-llm.id='$(ADNR_LLM_ID)',) \
-	$(if $(ADNR_LLM_ENABLED),--set-string llama-stack.models.adnr-llm.url='$(ADNR_LLM_URL)',) \
-	$(if $(ADNR_LLM_ENABLED),--set-string llama-stack.models.adnr-llm.apiToken='$(ADNR_LLM_TOKEN)',) \
-	$(if $(ADNR_LLM_ENABLED),--set-string network.agentService.granite.modelName='adnr-llm/$(ADNR_LLM_ID)',)
+	--set llama-stack.models.adnr-llm.enabled=true \
+	--set-string llama-stack.models.adnr-llm.id='$(ADNR_LLM_ID)' \
+	--set-string llama-stack.models.adnr-llm.url='$(ADNR_LLM_URL)' \
+	--set-string llama-stack.models.adnr-llm.apiToken='$(ADNR_LLM_TOKEN)' \
+	--set-string network.agentService.granite.modelName='adnr-llm/$(ADNR_LLM_ID)' \
+	--set-string network.chatbotService.env.modelName='adnr-llm/$(ADNR_LLM_ID)' \
+	--set-string telco.ranChatbotService.env.modelName='adnr-llm/$(ADNR_LLM_ID)' \
+	--set-string telco.ranRcaService.env.graniteModelName='adnr-llm/$(ADNR_LLM_ID)'
 
 helm_mcp_image_args = \
 	--set network.mcp-servers.mcp-servers.noc-openshift.image.repository=$(REGISTRY)/noc-mcp-openshift \
