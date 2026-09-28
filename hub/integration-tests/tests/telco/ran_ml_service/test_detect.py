@@ -104,6 +104,15 @@ class TestDetectErrorHandling:
         response = ran_ml_service_client.post("/v1/detect", json={})
         assert response.status_code == 422
 
+    def test_missing_kpi_field_returns_422(self, ran_ml_service_client):
+        kpi_window = _load_fixture_kpi_window("antenna_failure")
+        del kpi_window[0]["RSRP"]
+
+        response = ran_ml_service_client.post("/v1/detect", json={"kpi_window": kpi_window})
+
+        assert response.status_code == 422
+        assert "missing KPI" in response.json()["error"]
+
     def test_response_has_expected_schema(self, ran_ml_service_client):
         kpi_window = _load_fixture_kpi_window("antenna_failure")
         response = ran_ml_service_client.post("/v1/detect", json={"kpi_window": kpi_window})
