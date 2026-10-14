@@ -12,7 +12,7 @@ curl -sk -H "Authorization: Bearer $ADNR_LLM_TOKEN" \
   -H "Content-Type: application/json" \
   "$ADNR_LLM_URL/chat/completions" \
   -d '{
-    "model": "granite-32-8b-vllm",
+    "model": "granite-3-2-8b-instruct",
     "messages": [
       {"role": "user", "content": "What is the weather in Boston?"}
     ],
