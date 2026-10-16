@@ -123,6 +123,9 @@ jobs:
           ADNR_LLM_TOKEN: ${{ secrets.ADNR_LLM_TOKEN }}
           ADNR_DETECT_TOKEN: ${{ secrets.ADNR_DETECT_TOKEN }}
 
+      - name: Generate TelecomTS fixtures
+        run: make generate-fixtures
+
       - name: Run Telco ORAN integration tests
         shell: bash
         run: |
