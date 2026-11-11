@@ -202,7 +202,7 @@ TELCO_IMAGES := \
 EDGE_IMAGES := \
 	$(EDGE_FAST_PATH_HEALER_IMG)
 
-CPU_DEMO_IMAGES := $(addprefix $(REGISTRY)/,showcase-client:$(VERSION) showcase-microservice-a:$(VERSION) showcase-microservice-b:$(VERSION))
+CPU_DEMO_IMAGES := $(addprefix $(CPU_DEMO_REGISTRY)/,showcase-client:$(VERSION) showcase-microservice-a:$(VERSION) showcase-microservice-b:$(VERSION))
 
 CORE_BUILD_PUSH_IMAGES := \
 	$(SHARED_IMAGES) \
@@ -425,7 +425,7 @@ CPU_DEMO_TARGETS := cpu-demo-build-images cpu-demo-push-images cpu-demo-deploy c
 $(CPU_DEMO_TARGETS):
 	$(MAKE) -C e2e-showcase/cpu-misconfiguration $(patsubst cpu-demo-%,%,$@) \
 		RELEASE=cpu-misconfiguration CLUSTER_COUNT='$(CLUSTER_COUNT)' \
-		EDGE_NAMESPACE='$(EDGE_NAMESPACE)' REGISTRY='$(REGISTRY)' \
+		EDGE_NAMESPACE='$(EDGE_NAMESPACE)' REGISTRY='$(CPU_DEMO_REGISTRY)' \
 		VERSION='$(VERSION)' SITE_A='$(CPU_DEMO_SITE_A)' SITE_B='$(CPU_DEMO_SITE_B)' \
 		CONTAINER_TOOL='$(CONTAINER_TOOL)' ARCH='$(ARCH)' PUSH_EXTRA_ARGS='$(PUSH_EXTRA_ARGS)'
 
